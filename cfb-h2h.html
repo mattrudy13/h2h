@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>College Football Head-to-Head</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --border: #ddd;
+    --accent: #8b1e2b;
+    --card: #f7f7f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --fg: #e8e8e8;
+      --muted: #9aa0a6;
+      --border: #333;
+      --accent: #e0555f;
+      --card: #1e2126;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  p.sub { color: var(--muted); margin-top: 0; }
+  .picker {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0;
+  }
+  .picker input {
+    flex: 1;
+    min-width: 200px;
+    padding: .6rem .8rem;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--fg);
+  }
+  .vs { font-weight: 700; color: var(--muted); }
+  button {
+    padding: .6rem 1.2rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { color: var(--muted); min-height: 1.2rem; margin-top: .5rem; }
+  #result { margin-top: 1.5rem; }
+  .summary {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    flex: 1;
+    min-width: 120px;
+  }
+  .stat .n { font-size: 1.8rem; font-weight: 700; }
+  .stat .l { color: var(--muted); font-size: .85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  tr:hover td { background: var(--card); }
+  .winner { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>College Football Head-to-Head</h1>
+<p class="sub">Pick two teams to see their all-time series record. Data via <a href="https://collegefootballdata.com" target="_blank" rel="noopener">CollegeFootballData.com</a>.</p>
+
+<div class="picker">
+  <input id="team1" list="teams" placeholder="Team 1 (e.g. Michigan)" autocomplete="off">
+  <span class="vs">vs</span>
+  <input id="team2" list="teams" placeholder="Team 2 (e.g. Ohio State)" autocomplete="off">
+  <datalist id="teams"></datalist>
+  <button id="go">Compare</button>
+</div>
+
+<div id="status"></div>
+<div id="result"></div>
+
+<nav style="margin-top:2.5rem;font-size:.85rem;"><a href="cbb-h2h.html" style="color:var(--accent);">College basketball version &rarr;</a></nav>
+
+<script src="cfb-config.js"></script>
+<script>
+const API_BASE = "https://api.collegefootballdata.com";
+
+function apiKey() {
+  return (window.CFBD_API_KEY || "").trim();
+}
+
+async function apiFetch(path) {
+  const key = apiKey();
+  if (!key) throw new Error("No API key set. Add it to cfb-config.js.");
+  const res = await fetch(API_BASE + path, {
+    headers: { Authorization: "Bearer " + key }
+  });
+  if (!res.ok) {
+    throw new Error(`API error ${res.status}: ${await res.text()}`);
+  }
+  return res.json();
+}
+
+async function loadTeams() {
+  try {
+    const teams = await apiFetch("/teams/fbs");
+    const datalist = document.getElementById("teams");
+    datalist.innerHTML = teams
+      .map(t => t.school)
+      .sort()
+      .map(name => `<option value="${name.replace(/"/g, "&quot;")}">`)
+      .join("");
+  } catch (err) {
+    setStatus("Couldn't load team list (typing still works): " + err.message, true);
+  }
+}
+
+function setStatus(msg, isError) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.color = isError ? "var(--accent)" : "var(--muted)";
+}
+
+function fmtDate(d) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+async function compare() {
+  const t1 = document.getElementById("team1").value.trim();
+  const t2 = document.getElementById("team2").value.trim();
+  const resultEl = document.getElementById("result");
+  resultEl.innerHTML = "";
+
+  if (!t1 || !t2) {
+    setStatus("Enter both team names.", true);
+    return;
+  }
+  if (t1.toLowerCase() === t2.toLowerCase()) {
+    setStatus("Pick two different teams.", true);
+    return;
+  }
+
+  setStatus("Loading matchup history...");
+  document.getElementById("go").disabled = true;
+
+  try {
+    const data = await apiFetch(
+      `/teams/matchup?team1=${encodeURIComponent(t1)}&team2=${encodeURIComponent(t2)}`
+    );
+
+    if (!data.games || data.games.length === 0) {
+      setStatus(`No games found between ${t1} and ${t2}.`);
+      return;
+    }
+
+    const seasons = data.games.map(g => g.season);
+    const startYear = Math.min(...seasons);
+    const endYear = Math.max(...seasons);
+    setStatus(`${data.games.length} games found, ${startYear}–${endYear}.`);
+
+    const summary = document.createElement("div");
+    summary.className = "summary";
+    summary.innerHTML = `
+      <div class="stat"><div class="n">${data.team1Wins}</div><div class="l">${data.team1} wins</div></div>
+      <div class="stat"><div class="n">${data.team2Wins}</div><div class="l">${data.team2} wins</div></div>
+      <div class="stat"><div class="n">${data.ties || 0}</div><div class="l">Ties</div></div>
+    `;
+
+    const table = document.createElement("table");
+    const rows = [...data.games].sort((a, b) => (b.season - a.season) || (b.week - a.week));
+    table.innerHTML = `
+      <thead>
+        <tr><th>Date</th><th>Season</th><th>Home</th><th>Away</th><th>Score</th><th>Winner</th></tr>
+      </thead>
+      <tbody>
+        ${rows.map(g => {
+          const winner = g.winner || (g.homeScore > g.awayScore ? g.homeTeam : g.awayScore > g.homeScore ? g.awayTeam : "Tie");
+          return `<tr>
+            <td>${fmtDate(g.date)}</td>
+            <td>${g.season}${g.seasonType && g.seasonType !== "regular" ? " (" + g.seasonType + ")" : ""}</td>
+            <td>${g.homeTeam}</td>
+            <td>${g.awayTeam}</td>
+            <td>${g.homeScore ?? "?"}–${g.awayScore ?? "?"}</td>
+            <td class="winner">${winner}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    `;
+
+    resultEl.appendChild(summary);
+    resultEl.appendChild(table);
+  } catch (err) {
+    setStatus("Error: " + err.message, true);
+  } finally {
+    document.getElementById("go").disabled = false;
+  }
+}
+
+document.getElementById("go").addEventListener("click", compare);
+document.getElementById("team2").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
+document.getElementById("team1").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
+
+if (!apiKey()) {
+  setStatus("No API key found — create cfb-config.js with window.CFBD_API_KEY set.", true);
+} else {
+  loadTeams();
+}
+</script>
+
+</body>
+</html>
