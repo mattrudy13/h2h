@@ -34,7 +34,10 @@ The Worker:
 - only answers requests from `https://mattrudy13.github.io` and `localhost`
 - only forwards the endpoints the site uses (`/cfb/teams/fbs`, `/cfb/teams/matchup`,
   `/cbb/teams`, `/cbb/games`), so it can't be used as an open proxy for the key
-- caches successful responses for 6 hours to save API quota
+- caches successful responses to save API quota: team lists for 7 days; matchups and game
+  lists for 12 hours in season (football Aug–Jan, basketball Nov–Apr) and 7 days off-season.
+  Browsers keep their copy for at most 1 hour. To clear Cloudflare's cache early, bump
+  `CACHE_VERSION` in `worker/src/index.js` and redeploy.
 
 Football's Team vs Conference makes one matchup request per member (about 17 for the Big
 Ten), 4 at a time, because the API has no per-team history endpoint. Basketball's needs only

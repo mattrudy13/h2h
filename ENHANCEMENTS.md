@@ -50,7 +50,7 @@ Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
 - [x] **Escape API text before inserting HTML**: rows are built with `innerHTML` from API
       fields (team names, venues). The risk is low because the data comes from a trusted
       API, but an `esc()` helper costs nothing.
-- [ ] **Smarter caching in the Worker**: finished seasons never change. Cache past-season
+- [x] **Smarter caching in the Worker**: finished seasons never change. Cache past-season
       results for days instead of 6 hours, and keep the current season short.
 - [ ] **Rate limit in the Worker**: the origin check stops other websites, but not scripts
       that fake the `Origin` header. A per-IP limit (Cloudflare's rate-limiting binding)
