@@ -86,6 +86,8 @@
   th { color: var(--muted); font-weight: 600; }
   tr:hover td { background: var(--card); }
   .winner { font-weight: 700; }
+  tr.upcoming td { color: var(--muted); font-style: italic; }
+  tr.upcoming .winner { font-weight: 400; }
   nav.crosslink { margin-top: 2.5rem; font-size: .85rem; }
   nav.crosslink a { color: var(--accent); }
 </style>
@@ -168,10 +170,18 @@ async function compare() {
     // game for team1 and filter down to games against team2 client-side.
     const allGames = await apiFetch(`/games?team=${encodeURIComponent(t1)}`);
     const t2Lower = t2.toLowerCase();
-    const games = allGames.filter(g =>
+    const matchups = allGames.filter(g =>
       (g.homeTeam || "").toLowerCase() === t2Lower ||
       (g.awayTeam || "").toLowerCase() === t2Lower
     );
+
+    // Unplayed games come back with status "scheduled" and a 0–0 score, so
+    // only finished games count toward the record. Future ones are listed as
+    // upcoming; past non-final ones (postponed/cancelled) are dropped.
+    const now = Date.now();
+    const played = matchups.filter(g => g.status === "final");
+    const upcoming = matchups.filter(g => g.status !== "final" && new Date(g.startDate) > now);
+    const games = [...played, ...upcoming];
 
     if (games.length === 0) {
       setStatus(`No games found between ${t1} and ${t2}.`);
@@ -183,7 +193,7 @@ async function compare() {
     const team2Name = games[0].homeTeam.toLowerCase() === t2Lower ? games[0].homeTeam : games[0].awayTeam;
 
     let team1Wins = 0, team2Wins = 0, ties = 0;
-    for (const g of games) {
+    for (const g of played) {
       const homeIsTeam1 = g.homeTeam.toLowerCase() === t1.toLowerCase();
       const team1Won = homeIsTeam1 ? g.homeWinner : g.awayWinner;
       const team2Won = homeIsTeam1 ? g.awayWinner : g.homeWinner;
@@ -192,17 +202,20 @@ async function compare() {
       else ties++;
     }
 
-    const seasons = games.map(g => g.season);
-    const startYear = Math.min(...seasons);
-    const endYear = Math.max(...seasons);
-    setStatus(`${games.length} games found, ${startYear}–${endYear}.`);
+    const upcomingNote = upcoming.length ? ` · ${upcoming.length} upcoming` : "";
+    if (played.length) {
+      const seasons = played.map(g => g.season);
+      setStatus(`${played.length} games played, ${Math.min(...seasons)}–${Math.max(...seasons)}${upcomingNote}.`);
+    } else {
+      setStatus(`No games played yet${upcomingNote}.`);
+    }
 
     const summary = document.createElement("div");
     summary.className = "summary";
     summary.innerHTML = `
       <div class="stat"><div class="n">${team1Wins}</div><div class="l">${team1Name} wins</div></div>
       <div class="stat"><div class="n">${team2Wins}</div><div class="l">${team2Name} wins</div></div>
-      <div class="stat"><div class="n">${ties}</div><div class="l">Ties</div></div>
+      ${ties ? `<div class="stat"><div class="n">${ties}</div><div class="l">Ties</div></div>` : ""}
     `;
 
     const table = document.createElement("table");
@@ -213,14 +226,16 @@ async function compare() {
       </thead>
       <tbody>
         ${rows.map(g => {
-          const winner = g.homeWinner ? g.homeTeam : g.awayWinner ? g.awayTeam : "Tie";
+          const isUpcoming = g.status !== "final";
+          const winner = isUpcoming ? "Upcoming" : g.homeWinner ? g.homeTeam : g.awayWinner ? g.awayTeam : "Tie";
+          const score = isUpcoming ? "—" : `${g.homePoints ?? "?"}–${g.awayPoints ?? "?"}`;
           const label = g.tournament ? `${g.season} (${g.tournament})` : g.season;
-          return `<tr>
+          return `<tr${isUpcoming ? ' class="upcoming"' : ""}>
             <td>${fmtDate(g.startDate)}</td>
             <td>${label}</td>
             <td>${g.homeTeam}</td>
             <td>${g.awayTeam}</td>
-            <td>${g.homePoints ?? "?"}–${g.awayPoints ?? "?"}</td>
+            <td>${score}</td>
             <td class="winner">${winner}</td>
           </tr>`;
         }).join("")}
