@@ -1,0 +1,7 @@
+name = "h2h-proxy"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# The API key is a secret, not a var — set it with:
+#   npx wrangler secret put CFBD_API_KEY
+# For local `wrangler dev`, put CFBD_API_KEY=... in worker/.dev.vars (gitignored).

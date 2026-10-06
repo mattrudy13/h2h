@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>College Head-to-Head</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --border: #ddd;
+    --accent: #8b1e2b;
+    --card: #f7f7f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --fg: #e8e8e8;
+      --muted: #9aa0a6;
+      --border: #333;
+      --accent: #e0555f;
+      --card: #1e2126;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  p.sub { color: var(--muted); margin-top: 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  a.card {
+    display: block;
+    padding: 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  a.card:hover { border-color: var(--accent); }
+  a.card strong { color: var(--accent); font-size: 1.1rem; }
+  a.card span { display: block; color: var(--muted); margin-top: .35rem; font-size: .9rem; }
+</style>
+</head>
+<body>
+<h1>College Head-to-Head</h1>
+<p class="sub">All-time series records between any two schools.</p>
+<div class="cards">
+  <a class="card" href="cfb-h2h.html"><strong>Football &rarr;</strong><span>FBS matchups via CollegeFootballData.com</span></a>
+  <a class="card" href="cbb-h2h.html"><strong>Basketball &rarr;</strong><span>Men's matchups via CollegeBasketballData.com</span></a>
+</div>
+</body>
+</html>

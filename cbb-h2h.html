@@ -108,20 +108,13 @@
 
 <nav class="crosslink"><a href="cfb-h2h.html">&larr; College football version</a></nav>
 
-<script src="cfb-config.js"></script>
+<script src="proxy-config.js"></script>
 <script>
-const API_BASE = "https://api.collegebasketballdata.com";
-
-function apiKey() {
-  return (window.CFBD_API_KEY || "").trim();
-}
+// Requests go through the Cloudflare Worker in worker/, which adds the API key.
+const API_BASE = (window.H2H_PROXY || "").replace(/\/$/, "") + "/cbb";
 
 async function apiFetch(path) {
-  const key = apiKey();
-  if (!key) throw new Error("No API key set. Add it to cfb-config.js.");
-  const res = await fetch(API_BASE + path, {
-    headers: { Authorization: "Bearer " + key }
-  });
+  const res = await fetch(API_BASE + path);
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${await res.text()}`);
   }
@@ -247,8 +240,8 @@ document.getElementById("go").addEventListener("click", compare);
 document.getElementById("team2").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
 document.getElementById("team1").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
 
-if (!apiKey()) {
-  setStatus("No API key found — create cfb-config.js with window.CFBD_API_KEY set.", true);
+if (!window.H2H_PROXY) {
+  setStatus("No proxy URL set — set window.H2H_PROXY in proxy-config.js.", true);
 } else {
   loadTeams();
 }

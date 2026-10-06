@@ -29,6 +29,9 @@
 # Secrets #
 ###########
 cfb-config.js
+.dev.vars
+.wrangler/
+node_modules/
 
 # OS generated files #
 ######################
