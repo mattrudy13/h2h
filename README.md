@@ -41,7 +41,8 @@ The Worker's URL lives in `proxy-config.js`. It isn't a secret.
 | `index.html`           | Landing page linking to both sports                  |
 | `cfb-h2h.html`         | Football page                                        |
 | `cbb-h2h.html`         | Basketball page                                      |
-| `common.js`            | Shared page code: team-name matching, links, swap    |
+| `style.css`            | Shared styles for all three pages (light and dark)   |
+| `common.js`            | Shared page code: team matching, logos and colors, scoreboard, links |
 | `proxy-config.js`      | Worker URL the pages call                            |
 | `worker/src/index.js`  | The Cloudflare Worker                                |
 | `worker/wrangler.toml` | Worker config                                        |

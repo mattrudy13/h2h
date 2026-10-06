@@ -4,58 +4,63 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>College Head-to-Head</title>
-<style>
-  :root {
-    color-scheme: light dark;
-    --bg: #ffffff;
-    --fg: #1a1a1a;
-    --muted: #666;
-    --border: #ddd;
-    --accent: #8b1e2b;
-    --card: #f7f7f7;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14161a;
-      --fg: #e8e8e8;
-      --muted: #9aa0a6;
-      --border: #333;
-      --accent: #e0555f;
-      --card: #1e2126;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem 1rem 4rem;
-  }
-  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
-  p.sub { color: var(--muted); margin-top: 0; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
-  a.card {
-    display: block;
-    padding: 1.25rem;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--fg);
-    text-decoration: none;
-  }
-  a.card:hover { border-color: var(--accent); }
-  a.card strong { color: var(--accent); font-size: 1.1rem; }
-  a.card span { display: block; color: var(--muted); margin-top: .35rem; font-size: .9rem; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>College Head-to-Head</h1>
-<p class="sub">All-time series records between any two schools.</p>
-<div class="cards">
-  <a class="card" href="cfb-h2h.html"><strong>Football &rarr;</strong><span>FBS matchups via CollegeFootballData.com</span></a>
-  <a class="card" href="cbb-h2h.html"><strong>Basketball &rarr;</strong><span>Men's matchups via CollegeBasketballData.com</span></a>
-</div>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="wordmark" href="index.html">Head<span>-to-</span>Head</a>
+    <nav class="tabs" aria-label="Sport">
+      <a href="cfb-h2h.html">Football</a>
+      <a href="cbb-h2h.html">Basketball</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Settle the rivalry</h1>
+    <p>All-time series records between any two college programs, game by game.</p>
+  </section>
+
+  <div class="sports">
+    <section class="card sport-card" data-sport="cfb">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" aria-hidden="true">
+        <ellipse cx="50" cy="50" rx="44" ry="27" transform="rotate(-35 50 50)"/>
+        <path d="M37 63 63 37M44 47l6 6M49 42l6 6M39 52l6 6M54 37l6 6"/>
+      </svg>
+      <h2><a href="cfb-h2h.html">Football</a></h2>
+      <p>Every FBS series back to the 1800s, including bowl games.</p>
+      <div class="chips">
+        <a class="chip" href="cfb-h2h.html?t1=Michigan&amp;t2=Ohio+State">Michigan vs Ohio State</a>
+        <a class="chip" href="cfb-h2h.html?t1=Alabama&amp;t2=Auburn">Alabama vs Auburn</a>
+        <a class="chip" href="cfb-h2h.html?t1=Army&amp;t2=Navy">Army vs Navy</a>
+      </div>
+      <span class="go-label">Open football &rarr;</span>
+    </section>
+
+    <section class="card sport-card" data-sport="cbb">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="5" aria-hidden="true">
+        <circle cx="50" cy="50" r="44"/>
+        <path d="M6 50h88M50 6v88M19 19c14 14 14 48 0 62M81 19c-14 14-14 48 0 62"/>
+      </svg>
+      <h2><a href="cbb-h2h.html">Basketball</a></h2>
+      <p>Men's college basketball, with tournament games and upcoming meetings.</p>
+      <div class="chips">
+        <a class="chip" href="cbb-h2h.html?t1=Duke&amp;t2=North+Carolina">Duke vs North Carolina</a>
+        <a class="chip" href="cbb-h2h.html?t1=Kansas&amp;t2=Kentucky">Kansas vs Kentucky</a>
+        <a class="chip" href="cbb-h2h.html?t1=Indiana&amp;t2=Purdue">Indiana vs Purdue</a>
+      </div>
+      <span class="go-label">Open basketball &rarr;</span>
+    </section>
+  </div>
+</main>
+
+<footer class="wrap">Data via <a href="https://collegefootballdata.com" target="_blank" rel="noopener">CollegeFootballData.com</a> and <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a></footer>
+
 </body>
 </html>

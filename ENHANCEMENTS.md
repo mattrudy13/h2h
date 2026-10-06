@@ -27,10 +27,10 @@ Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
       doesn't drown out recent history.
 
 ## Look and feel
-- [ ] **Team colors and logos**: `/teams/fbs` already returns `color`, `alternateColor` and
+- [x] **Team colors and logos**: `/teams/fbs` already returns `color`, `alternateColor` and
       `logos` for every school, so the summary cards could use each team's colors and logo
       at no extra API cost.
-- [ ] **Loading state**: a spinner or skeleton table. Uncached basketball lookups pull a
+- [x] **Loading state**: a spinner or skeleton table. Uncached basketball lookups pull a
       team's entire game history and can take a few seconds.
 - [ ] **Sortable table columns** (by date, margin, venue).
 
@@ -44,11 +44,10 @@ Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
       the `conference` field from the team list.
 
 ## Code and reliability
-- [ ] **Share code between the two pages**: `cfb-h2h.html` and `cbb-h2h.html` duplicate most of
-      their CSS and helpers (`apiFetch`, `setStatus`, `fmtDate`). Move them to `style.css`
-      and `common.js` so a fix only has to be made once (the unplayed-games bug only
-      existed in one copy).
-- [ ] **Escape API text before inserting HTML**: rows are built with `innerHTML` from API
+- [~] **Share code between the two pages**: partly done. All CSS is in `style.css`, and
+      `common.js` now holds `setStatus`, `fmtDate`, and the scoreboard and table rendering.
+      Still open: each page keeps its own `apiFetch`, `loadTeams` and most of `compare`.
+- [x] **Escape API text before inserting HTML**: rows are built with `innerHTML` from API
       fields (team names, venues). The risk is low because the data comes from a trusted
       API, but an `esc()` helper costs nothing.
 - [ ] **Smarter caching in the Worker**: finished seasons never change. Cache past-season

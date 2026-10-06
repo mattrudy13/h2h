@@ -4,153 +4,49 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>College Basketball Head-to-Head</title>
-<style>
-  :root {
-    color-scheme: light dark;
-    --bg: #ffffff;
-    --fg: #1a1a1a;
-    --muted: #666;
-    --border: #ddd;
-    --accent: #d97706;
-    --card: #f7f7f7;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14161a;
-      --fg: #e8e8e8;
-      --muted: #9aa0a6;
-      --border: #333;
-      --accent: #f0a94e;
-      --card: #1e2126;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem 1rem 4rem;
-  }
-  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
-  p.sub { color: var(--muted); margin-top: 0; }
-  .picker {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin: 1.5rem 0;
-  }
-  .picker input {
-    flex: 1;
-    min-width: 200px;
-    padding: .6rem .8rem;
-    font-size: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--card);
-    color: var(--fg);
-  }
-  button {
-    padding: .6rem 1.2rem;
-    font-size: 1rem;
-    border: none;
-    border-radius: 8px;
-    background: var(--accent);
-    color: #fff;
-    cursor: pointer;
-  }
-  button:disabled { opacity: .5; cursor: default; }
-  #status { color: var(--muted); min-height: 1.2rem; margin-top: .5rem; }
-  #result { margin-top: 1.5rem; }
-  .summary {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-  }
-  .stat {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1rem 1.5rem;
-    text-align: center;
-    flex: 1;
-    min-width: 120px;
-  }
-  .stat .n { font-size: 1.8rem; font-weight: 700; }
-  .stat .l { color: var(--muted); font-size: .85rem; }
-  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 600; }
-  tr:hover td { background: var(--card); }
-  .winner { font-weight: 700; }
-  button.swap {
-    padding: .45rem .7rem;
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    font-size: 1.1rem;
-    line-height: 1;
-  }
-  button.swap:hover { color: var(--fg); border-color: var(--muted); }
-  .status-row { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; margin-top: .5rem; }
-  .status-row #status { margin-top: 0; }
-  button.link-btn {
-    padding: 0;
-    background: none;
-    color: var(--accent);
-    font-size: .85rem;
-    text-decoration: underline;
-  }
-  #suggest { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
-  #suggest:empty { display: none; }
-  button.chip {
-    padding: .35rem .75rem;
-    font-size: .9rem;
-    background: var(--card);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-  }
-  button.chip:hover { border-color: var(--accent); }
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  @media (max-width: 600px) {
-    body { padding: 1.25rem .9rem 3rem; }
-    .picker { gap: .6rem; }
-    .picker input { flex-basis: 100%; min-width: 0; }
-    button.swap { margin: 0 auto; transform: rotate(90deg); }
-    #go { flex-basis: 100%; }
-    .stat { padding: .75rem; min-width: 0; }
-    .stat .n { font-size: 1.4rem; }
-    table { min-width: 560px; font-size: .85rem; }
-    th, td { padding: .4rem .45rem; }
-  }
-  tr.upcoming td { color: var(--muted); font-style: italic; }
-  tr.upcoming .winner { font-weight: 400; }
-  nav.crosslink { margin-top: 2.5rem; font-size: .85rem; }
-  nav.crosslink a { color: var(--accent); }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-sport="cbb">
 
-<h1>College Basketball Head-to-Head</h1>
-<p class="sub">Pick two teams to see their all-time series record. Data via <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a>.</p>
+<header class="topbar">
+  <div class="wrap">
+    <a class="wordmark" href="index.html">Head<span>-to-</span>Head</a>
+    <nav class="tabs" aria-label="Sport">
+      <a href="cfb-h2h.html">Football</a>
+      <a href="cbb-h2h.html" aria-current="page">Basketball</a>
+    </nav>
+  </div>
+</header>
 
-<div class="picker">
-  <input id="team1" list="teams" placeholder="Team 1 (e.g. Duke)" autocomplete="off">
-  <button id="swap" class="swap" type="button" title="Swap teams" aria-label="Swap teams">&#8644;</button>
-  <input id="team2" list="teams" placeholder="Team 2 (e.g. North Carolina)" autocomplete="off">
-  <datalist id="teams"></datalist>
-  <button id="go">Compare</button>
-</div>
+<main class="wrap">
+  <section class="hero">
+    <h1>College Basketball</h1>
+    <p>Pick two men's programs to see their all-time series.</p>
+  </section>
 
-<div class="status-row"><div id="status"></div><button id="copy-link" class="link-btn" type="button" hidden>Copy link</button></div>
-<div id="suggest"></div>
-<div id="result"></div>
+  <div class="card picker">
+    <div class="input-wrap"><span class="input-logo"></span><input id="team1" list="teams" placeholder="Team 1 (e.g. Duke)" autocomplete="off" aria-label="Team 1"></div>
+    <button id="swap" class="swap" type="button" title="Swap teams" aria-label="Swap teams">&#8644;</button>
+    <div class="input-wrap"><span class="input-logo"></span><input id="team2" list="teams" placeholder="Team 2 (e.g. North Carolina)" autocomplete="off" aria-label="Team 2"></div>
+    <datalist id="teams"></datalist>
+    <button id="go">Compare</button>
+  </div>
 
-<nav class="crosslink"><a href="cfb-h2h.html">&larr; College football version</a></nav>
+  <div id="status" role="status"></div>
+  <div id="suggest"></div>
+
+  <section id="rivalries" class="rivalries">
+    <h2>Classic rivalries</h2>
+    <div class="chips"></div>
+  </section>
+
+  <div id="result"></div>
+</main>
+
+<footer class="wrap">Data via <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a></footer>
 
 <script src="proxy-config.js"></script>
 <script src="common.js"></script>
@@ -172,26 +68,17 @@ async function apiFetch(path) {
 async function loadTeams() {
   try {
     const teams = await apiFetch("/teams");
-    teamIndex = buildTeamIndex(teams, ["abbreviation", "shortDisplayName", "displayName"]);
+    teamIndex = buildTeamIndex(teams, ["abbreviation", "shortDisplayName", "displayName"],
+      t => ({ color: t.primaryColor, altColor: t.secondaryColor, abbr: t.abbreviation, logos: t.logos }));
     const names = [...new Set(teams.map(t => t.school))].sort();
     const datalist = document.getElementById("teams");
     datalist.innerHTML = names
-      .map(name => `<option value="${name.replace(/"/g, "&quot;")}">`)
+      .map(name => `<option value="${esc(name)}">`)
       .join("");
+    refreshInputLogos(teamIndex);
   } catch (err) {
     setStatus("Couldn't load team list (typing still works): " + err.message, true);
   }
-}
-
-function setStatus(msg, isError) {
-  const el = document.getElementById("status");
-  el.textContent = msg;
-  el.style.color = isError ? "var(--accent)" : "var(--muted)";
-}
-
-function fmtDate(d) {
-  if (!d) return "";
-  return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 async function compare() {
@@ -200,7 +87,6 @@ async function compare() {
   const resultEl = document.getElementById("result");
   resultEl.innerHTML = "";
   clearSuggestions();
-  showCopyLink(false);
 
   if (!raw1 || !raw2) {
     setStatus("Enter both team names.", true);
@@ -216,6 +102,7 @@ async function compare() {
 
   writeTeamsToUrl(t1, t2);
   setStatus("Loading matchup history...");
+  renderSkeleton();
   document.getElementById("go").disabled = true;
 
   try {
@@ -237,7 +124,8 @@ async function compare() {
     const games = [...played, ...upcoming];
 
     if (games.length === 0) {
-      setStatus(`No games found between ${t1} and ${t2}.${note}`);
+      resultEl.innerHTML = "";
+      setStatus(`No games found between ${t1} and ${t2}. ${note}`.trim());
       return;
     }
 
@@ -256,52 +144,45 @@ async function compare() {
     }
 
     const upcomingNote = upcoming.length ? ` · ${upcoming.length} upcoming` : "";
+    let metaLine;
     if (played.length) {
-      const seasons = played.map(g => g.season);
-      setStatus(`${played.length} games played, ${Math.min(...seasons)}–${Math.max(...seasons)}${upcomingNote}.${note}`);
+      metaLine = `${gamesSummary(played.length, played.map(g => g.season))}${upcomingNote}.`;
     } else {
-      setStatus(`No games played yet${upcomingNote}.${note}`);
+      metaLine = `No games played yet${upcomingNote}.`;
     }
+    setStatus("");
 
-    const summary = document.createElement("div");
-    summary.className = "summary";
-    summary.innerHTML = `
-      <div class="stat"><div class="n">${team1Wins}</div><div class="l">${team1Name} wins</div></div>
-      <div class="stat"><div class="n">${team2Wins}</div><div class="l">${team2Name} wins</div></div>
-      ${ties ? `<div class="stat"><div class="n">${ties}</div><div class="l">Ties</div></div>` : ""}
-    `;
+    const rows = [...games]
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+      .map(g => {
+        const badges = [];
+        if (g.tournament) badges.push({ text: g.tournament, post: true });
+        else if (g.seasonType === "postseason") badges.push({ text: "postseason", post: true });
+        if (g.neutralSite) badges.push({ text: "Neutral" });
+        return {
+          date: g.startDate,
+          season: g.season,
+          badges,
+          home: g.homeTeam,
+          away: g.awayTeam,
+          homePts: g.homePoints,
+          awayPts: g.awayPoints,
+          winner: g.homeWinner ? g.homeTeam : g.awayWinner ? g.awayTeam : null,
+          upcoming: g.status !== "final",
+        };
+      });
 
-    const table = document.createElement("table");
-    const rows = [...games].sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-    table.innerHTML = `
-      <thead>
-        <tr><th>Date</th><th>Season</th><th>Home</th><th>Away</th><th>Score</th><th>Winner</th></tr>
-      </thead>
-      <tbody>
-        ${rows.map(g => {
-          const isUpcoming = g.status !== "final";
-          const winner = isUpcoming ? "Upcoming" : g.homeWinner ? g.homeTeam : g.awayWinner ? g.awayTeam : "Tie";
-          const score = isUpcoming ? "—" : `${g.homePoints ?? "?"}–${g.awayPoints ?? "?"}`;
-          const label = g.tournament ? `${g.season} (${g.tournament})` : g.season;
-          return `<tr${isUpcoming ? ' class="upcoming"' : ""}>
-            <td>${fmtDate(g.startDate)}</td>
-            <td>${label}</td>
-            <td>${g.homeTeam}</td>
-            <td>${g.awayTeam}</td>
-            <td>${score}</td>
-            <td class="winner">${winner}</td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    `;
-
-    const tableWrap = document.createElement("div");
-    tableWrap.className = "table-wrap";
-    tableWrap.appendChild(table);
-    resultEl.appendChild(summary);
-    resultEl.appendChild(tableWrap);
-    showCopyLink(true);
+    renderMatchup({
+      team1: team1Name,
+      team2: team2Name,
+      wins1: team1Wins,
+      wins2: team2Wins,
+      ties,
+      metaLine: `${metaLine} ${note}`.trim(),
+      rows,
+    }, teamIndex);
   } catch (err) {
+    resultEl.innerHTML = "";
     setStatus("Error: " + err.message, true);
   } finally {
     document.getElementById("go").disabled = false;
@@ -309,8 +190,16 @@ async function compare() {
 }
 
 document.getElementById("go").addEventListener("click", compare);
-initSwap(compare);
+initSwap(compare, () => teamIndex);
 initCopyLink();
+initInputLogos(() => teamIndex);
+initRivalries([
+  ["Duke", "North Carolina"],
+  ["Kansas", "Kentucky"],
+  ["Indiana", "Purdue"],
+  ["Louisville", "Kentucky"],
+  ["UConn", "Villanova"],
+], compare);
 document.getElementById("team2").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
 document.getElementById("team1").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
 
