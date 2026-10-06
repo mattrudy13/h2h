@@ -43,6 +43,7 @@ function buildTeamIndex(teams, aliasFields, metaOf) {
   const bySchool = new Map();
   const byAlias = new Map();
   const meta = new Map();
+  const conferences = new Map();
   for (const t of teams) {
     if (!t.school) continue;
     bySchool.set(normalizeName(t.school), t.school);
@@ -55,11 +56,16 @@ function buildTeamIndex(teams, aliasFields, metaOf) {
       }
     }
     // The basketball list repeats some schools; keep the entry that has a logo.
-    const m = parseMeta(metaOf(t));
+    const raw = metaOf(t);
+    if (raw.conference) {
+      if (!conferences.has(raw.conference)) conferences.set(raw.conference, new Set());
+      conferences.get(raw.conference).add(t.school);
+    }
+    const m = parseMeta(raw);
     const prev = meta.get(t.school);
     if (!prev || (!prev.logo && m.logo)) meta.set(t.school, m);
   }
-  return { bySchool, byAlias, meta, schools: [...new Set(bySchool.values())] };
+  return { bySchool, byAlias, meta, conferences, schools: [...new Set(bySchool.values())] };
 }
 
 function levenshtein(a, b) {
@@ -329,8 +335,299 @@ function renderMatchup({ team1, team2, wins1, wins2, ties, metaLine, rows }, ind
       </div>
     </section>`;
 
+  const stats = seriesStats(rows, team1, team2);
+  document.getElementById("result").innerHTML =
+    board + highlightsHtml(stats, team1, team2, colorOf) + decadesHtml(stats.games, team1, team2, c1, c2) + table;
+}
+
+// ---- Series highlights ----
+
+function sameTeam(a, b) {
+  return String(a).toLowerCase() === String(b).toLowerCase();
+}
+
+// Streaks, last meeting and biggest wins, from finished games in date order.
+function seriesStats(rows, team1, team2) {
+  const games = rows.filter(g => !g.upcoming).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const side = g => (!g.winner ? null : sameTeam(g.winner, team1) ? team1 : sameTeam(g.winner, team2) ? team2 : null);
+  const longest = { [team1]: null, [team2]: null };
+  const biggest = { [team1]: null, [team2]: null };
+  let current = null;
+  for (const g of games) {
+    const w = side(g);
+    if (w && current && current.team === w) {
+      current.n++;
+      current.to = g.season;
+    } else {
+      current = w ? { team: w, n: 1, from: g.season, to: g.season } : null;
+    }
+    if (current && (!longest[w] || current.n > longest[w].n)) longest[w] = { ...current };
+    const hp = Number(g.homePts), ap = Number(g.awayPts);
+    if (w && Number.isFinite(hp) && Number.isFinite(ap)) {
+      const margin = Math.abs(hp - ap);
+      if (!biggest[w] || margin > biggest[w].margin) {
+        biggest[w] = { margin, season: g.season, score: `${Math.max(hp, ap)}–${Math.min(hp, ap)}` };
+      }
+    }
+  }
+  return { games, current, longest, biggest, last: games[games.length - 1] || null, side };
+}
+
+function highlightsHtml(stats, team1, team2, colorOf) {
+  if (!stats.games.length) return "";
+  const dot = name => `<span class="dot" style="background:${colorOf(name)}"></span>`;
+  const shortYears = (a, b) => (a === b ? `${a}` : `${a}–${String(b).slice(String(a).slice(0, 2) === String(b).slice(0, 2) ? 2 : 0)}`);
+
+  const cur = stats.current;
+  const curTile = cur
+    ? `<div class="hl-value">${cur.n}</div><div class="hl-sub">${dot(cur.team)}${esc(cur.team)} ${cur.n === 1 ? "won the last meeting" : "wins in a row"}</div>`
+    : `<div class="hl-value">—</div><div class="hl-sub">Last meeting was a tie</div>`;
+
+  const last = stats.last;
+  const lastWinner = stats.side(last);
+  const hp = last.homePts ?? "?", ap = last.awayPts ?? "?";
+  const lastScore = lastWinner && sameTeam(lastWinner, last.away) ? `${ap}–${hp}` : `${hp}–${ap}`;
+  const lastTile = `<div class="hl-value">${esc(lastScore)}</div>
+    <div class="hl-sub">${lastWinner ? `${dot(lastWinner)}${esc(lastWinner)}` : "Tie"} · ${esc(fmtDate(last.date))}</div>`;
+
+  const twoRows = (label, fmt) => `<div class="card hl wide"><div class="hl-label">${label}</div><div class="hl-rows">
+    ${[team1, team2].map(t => `<div class="hl-row">${dot(t)}<span class="hl-team">${esc(t)}</span>${fmt(t)}</div>`).join("")}
+  </div></div>`;
+
+  return `<section class="highlights">
+    <div class="card hl"><div class="hl-label">Current streak</div>${curTile}</div>
+    <div class="card hl"><div class="hl-label">Last meeting</div>${lastTile}</div>
+    ${twoRows("Longest streak", t => {
+      const l = stats.longest[t];
+      return l ? `<b>${l.n}</b><span class="hl-note">${esc(shortYears(l.from, l.to))}</span>` : `<b>0</b><span class="hl-note"></span>`;
+    })}
+    ${twoRows("Biggest win", t => {
+      const b = stats.biggest[t];
+      return b ? `<b>${esc(b.score)}</b><span class="hl-note">${esc(b.season)}</span>` : `<b>—</b><span class="hl-note"></span>`;
+    })}
+  </section>`;
+}
+
+// ---- Record by decade ----
+
+// Mirrored bars: team1's wins grow left from the decade label, team2's grow
+// right, on one shared scale. Ties are listed in the hover text.
+function decadesHtml(games, team1, team2, c1, c2) {
+  const byDecade = new Map();
+  for (const g of games) {
+    const d = Math.floor(Number(g.season) / 10) * 10;
+    if (!byDecade.has(d)) byDecade.set(d, { w1: 0, w2: 0, t: 0 });
+    const r = byDecade.get(d);
+    if (!g.winner) r.t++;
+    else if (sameTeam(g.winner, team1)) r.w1++;
+    else if (sameTeam(g.winner, team2)) r.w2++;
+  }
+  if (byDecade.size < 2) return "";
+  const decades = [...byDecade.keys()].sort((a, b) => a - b);
+  const max = Math.max(...decades.map(d => Math.max(byDecade.get(d).w1, byDecade.get(d).w2)), 1);
+  const rows = decades.map(d => {
+    const { w1, w2, t } = byDecade.get(d);
+    const tip = `${d}s: ${team1} ${w1}, ${team2} ${w2}${t ? `, ${t} tie${t === 1 ? "" : "s"}` : ""}`;
+    return `<div class="dec-row" data-tip="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}">
+      <div class="dec-side l"><span class="dec-n${w1 ? "" : " zero"}">${w1}</span>${w1 ? `<i style="width:${(w1 / max) * 100}%;background:${c1}"></i>` : ""}</div>
+      <div class="dec-label">${d}s</div>
+      <div class="dec-side r">${w2 ? `<i style="width:${(w2 / max) * 100}%;background:${c2}"></i>` : ""}<span class="dec-n${w2 ? "" : " zero"}">${w2}</span></div>
+    </div>`;
+  }).join("");
+  return `<section class="card decades">
+    <div class="games-head"><h2 class="section-label">Record by decade</h2></div>
+    <div class="dec-legend">
+      <span><i style="background:${c1}"></i>${esc(team1)} wins</span>
+      <span>${esc(team2)} wins<i style="background:${c2}"></i></span>
+    </div>
+    <div class="dec-chart">${rows}<div class="chart-tip" hidden></div></div>
+  </section>`;
+}
+
+// One tooltip per chart, positioned over the hovered (or focused) row.
+function initChartTips() {
+  const show = row => {
+    const chart = row.closest(".dec-chart");
+    const tip = chart.querySelector(".chart-tip");
+    tip.textContent = row.dataset.tip;
+    tip.hidden = false;
+    tip.style.top = `${row.offsetTop - tip.offsetHeight - 6}px`;
+  };
+  const hide = row => { row.closest(".dec-chart").querySelector(".chart-tip").hidden = true; };
+  document.addEventListener("mouseover", e => { const r = e.target.closest(".dec-row"); if (r) show(r); });
+  document.addEventListener("mouseout", e => { const r = e.target.closest(".dec-row"); if (r && !r.contains(e.relatedTarget)) hide(r); });
+  document.addEventListener("focusin", e => { const r = e.target.closest(".dec-row"); if (r) show(r); });
+  document.addEventListener("focusout", e => { const r = e.target.closest(".dec-row"); if (r) hide(r); });
+}
+
+// ---- Team vs conference ----
+
+function getMode() {
+  return document.body.dataset.mode === "conf" ? "conf" : "team";
+}
+
+function setMode(mode) {
+  document.body.dataset.mode = mode;
+  for (const b of document.querySelectorAll(".mode-btn")) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
+  document.getElementById("team2").closest(".input-wrap").hidden = mode === "conf";
+  document.getElementById("swap").hidden = mode === "conf";
+  document.getElementById("conf-wrap").hidden = mode !== "conf";
+}
+
+function fillConferences(index) {
+  const sel = document.getElementById("conf");
+  const keep = sel.value;
+  const names = [...index.conferences.keys()].sort((a, b) => a.localeCompare(b));
+  sel.innerHTML = `<option value="">Pick a conference</option>` +
+    names.map(n => `<option value="${esc(n)}">${esc(n)} (${index.conferences.get(n).size} teams)</option>`).join("");
+  sel.value = keep;
+}
+
+// `compare` is the page's compare(), which dispatches on the mode.
+function initModes(compare) {
+  for (const b of document.querySelectorAll(".mode-btn")) {
+    b.addEventListener("click", () => {
+      if (getMode() === b.dataset.mode) return;
+      setMode(b.dataset.mode);
+      document.getElementById("result").innerHTML = "";
+      setStatus("");
+      clearSuggestions();
+    });
+  }
+  document.getElementById("conf").addEventListener("change", () => {
+    if (document.getElementById("team1").value.trim()) compare();
+  });
+  // Opponent links in the conference table open that head-to-head in place.
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a.vs-link");
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    setMode("team");
+    document.getElementById("team1").value = a.dataset.t1;
+    document.getElementById("team2").value = a.dataset.t2;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    compare();
+  });
+  setMode("team");
+}
+
+// `fetchVsMembers(team, members, onProgress)` is supplied by the page and
+// resolves to [{ opponent, wins, losses, ties, games, lastSeason, lastResult }].
+async function compareConference(index, fetchVsMembers, compare) {
+  const resultEl = document.getElementById("result");
+  const input = document.getElementById("team1");
+  const go = document.getElementById("go");
+  resultEl.innerHTML = "";
+  clearSuggestions();
+
+  const raw = input.value.trim();
+  const conf = document.getElementById("conf").value;
+  if (!raw || !conf) {
+    setStatus("Enter a team and pick a conference.", true);
+    return;
+  }
+  if (!index) {
+    setStatus("The team list hasn't loaded yet. Try again in a moment.", true);
+    return;
+  }
+  const r = resolveTeam(raw, index);
+  if (!r.name) {
+    showSuggestions(input, raw, r.suggestions, compare);
+    return;
+  }
+  const team = r.name;
+  input.value = team;
+  refreshInputLogos(index);
+  const note = normalizeName(team) !== normalizeName(raw) ? `Showing ${team} for "${raw}".` : "";
+  const members = [...index.conferences.get(conf)].filter(s => s !== team).sort((a, b) => a.localeCompare(b));
+
+  writeConfToUrl(team, conf);
+  setStatus(`Loading ${members.length} opponents...`);
+  renderSkeleton();
+  go.disabled = true;
+  try {
+    const records = await fetchVsMembers(team, members, done => setStatus(`Loading opponents... ${done} of ${members.length}`));
+    setStatus("");
+    renderConference({ team, conf, records, note }, index);
+  } catch (err) {
+    resultEl.innerHTML = "";
+    setStatus("Error: " + err.message, true);
+  } finally {
+    go.disabled = false;
+  }
+}
+
+// Runs `task` over `items` with at most `limit` in flight, in input order.
+async function mapLimit(items, limit, task) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await task(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+const CONF_COLOR = "#8b93a1";
+
+function renderConference({ team, conf, records, note }, index) {
+  const m = teamMeta(index, team);
+  const c1 = colorDistance(m.color, CONF_COLOR) < 60 && m.altColor && !isNearWhite(m.altColor) ? m.altColor : m.color;
+  const sum = k => records.reduce((n, r) => n + r[k], 0);
+  const wins = sum("wins"), losses = sum("losses"), ties = sum("ties"), games = sum("games");
+  const played = records.filter(r => r.games);
+  const pct = wins + losses ? (wins / (wins + losses)) * 100 : null;
+  const verdict = pct === null ? `No games vs the ${conf}`
+    : wins === losses ? "Even all-time" : wins > losses ? "Winning record" : "Losing record";
+
+  const logos = played.slice().sort((a, b) => b.games - a.games).slice(0, 4)
+    .map(r => logoHtml(teamMeta(index, r.opponent), r.opponent, "md")).join("");
+
+  const board = `
+    <section class="card scoreboard" style="--c1:${c1};--c2:${CONF_COLOR}">
+      <div class="sb-team">${logoHtml(m, team, "lg")}<div class="sb-name">${esc(team)}</div></div>
+      <div class="sb-center">
+        <div class="sb-nums"><span class="${wins >= losses ? "" : "trail"}">${wins}</span><span class="dash">–</span><span class="${losses >= wins ? "" : "trail"}">${losses}</span></div>
+        <div class="sb-verdict">${esc(verdict)}${pct !== null ? ` · ${pct.toFixed(1)}%` : ""}</div>
+        ${ties ? `<span class="pill sb-ties">${ties} tie${ties === 1 ? "" : "s"}</span>` : ""}
+      </div>
+      <div class="sb-team"><div class="conf-logos">${logos}</div><div class="sb-name">vs ${esc(conf)}</div></div>
+      ${games ? `<div class="sb-bar" role="img" aria-label="${wins} wins, ${ties} ties, ${losses} losses">
+        <i class="b1" style="flex:${wins}"></i><i class="bt" style="flex:${ties}"></i><i class="b2" style="flex:${losses}"></i>
+      </div>` : ""}
+      <div class="sb-meta"><span>${games} game${games === 1 ? "" : "s"} vs ${played.length} of ${records.length} current members. ${esc(note)}</span><button id="copy-link" class="link-btn" type="button">Copy link</button></div>
+    </section>`;
+
+  const sorted = records.slice().sort((a, b) => b.games - a.games || a.opponent.localeCompare(b.opponent));
+  const rowHtml = r => {
+    const p = r.wins + r.losses ? (r.wins / (r.wins + r.losses)) * 100 : null;
+    const rec = `${r.wins}–${r.losses}${r.ties ? `–${r.ties}` : ""}`;
+    return `<tr${r.games ? "" : ' class="upcoming"'}>
+      <td><a class="vs-link" href="${esc(matchupHref(team, r.opponent))}" data-t1="${esc(team)}" data-t2="${esc(r.opponent)}">${logoHtml(teamMeta(index, r.opponent), r.opponent, "sm")}<span>${esc(r.opponent)}</span></a></td>
+      <td class="score">${r.games ? `<b>${rec}</b>` : "Never played"}</td>
+      <td>${p === null ? "—" : `<span class="pct"><span class="pct-bar"><i style="width:${p}%;background:${c1}"></i></span>${p.toFixed(0)}%</span>`}</td>
+      <td>${r.games || "—"}</td>
+      <td>${r.lastSeason ? `${esc(r.lastSeason)} <span class="pill">${esc(r.lastResult)}</span>` : "—"}</td>
+    </tr>`;
+  };
+  const table = `
+    <section class="card games">
+      <div class="games-head"><h2 class="section-label">${esc(team)} vs each ${esc(conf)} team</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opponent</th><th>Record</th><th>Win %</th><th>Games</th><th>Last met</th></tr></thead>
+          <tbody>${sorted.map(rowHtml).join("")}</tbody>
+        </table>
+      </div>
+      <p class="table-note">Records are against the conference's current members, including games from before they joined. Tap a team for the full head-to-head.</p>
+    </section>`;
+
   document.getElementById("result").innerHTML = board + table;
 }
+
 
 // ---- Shareable links ----
 
@@ -338,12 +635,19 @@ function readTeamsFromUrl() {
   const params = new URLSearchParams(location.search);
   const t1 = (params.get("t1") || "").trim();
   const t2 = (params.get("t2") || "").trim();
+  const conf = (params.get("conf") || "").trim();
+  if (t1 && conf) return { t1, conf };
   return t1 && t2 ? { t1, t2 } : null;
 }
 
 // replaceState, so repeated compares don't fill the Back-button history.
 function writeTeamsToUrl(t1, t2) {
   const params = new URLSearchParams({ t1, t2 });
+  history.replaceState(null, "", `${location.pathname}?${params}`);
+}
+
+function writeConfToUrl(t1, conf) {
+  const params = new URLSearchParams({ t1, conf });
   history.replaceState(null, "", `${location.pathname}?${params}`);
 }
 
@@ -355,7 +659,13 @@ function autoRunFromUrl(compare) {
   const teams = readTeamsFromUrl();
   if (!teams) return;
   document.getElementById("team1").value = teams.t1;
-  document.getElementById("team2").value = teams.t2;
+  if (teams.conf) {
+    setMode("conf");
+    document.getElementById("conf").value = teams.conf;
+  } else {
+    setMode("team");
+    document.getElementById("team2").value = teams.t2;
+  }
   compare();
 }
 
@@ -389,6 +699,7 @@ function initRivalries(pairs, compare) {
     chip.addEventListener("click", e => {
       if (e.metaKey || e.ctrlKey || e.shiftKey) return;
       e.preventDefault();
+      setMode("team");
       document.getElementById("team1").value = a;
       document.getElementById("team2").value = b;
       compare();

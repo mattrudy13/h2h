@@ -15,12 +15,12 @@ Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
       "UNC" → North Carolina, "Ohio St" → Ohio State).
 
 ## Better stats
-- [ ] **Series highlights**: current streak, longest streak each way, last meeting, biggest
+- [x] **Series highlights**: current streak, longest streak each way, last meeting, biggest
       win each way, average margin. All of these can be computed from the games already
       returned.
 - [ ] **Home / away / neutral split**: both APIs flag neutral-site games, so the record can be
       split as "X–Y at home, X–Y away, X–Y neutral".
-- [ ] **Record by decade**: a small bar chart showing which team owned which era.
+- [x] **Record by decade**: a small bar chart showing which team owned which era.
 - [ ] **Bowl and tournament games**: highlight postseason rows (football `seasonType`,
       basketball `tournament`) and give them their own record line.
 - [ ] **Date-range filter**: "since 2000" or a season slider, so a lopsided 1920s record
@@ -40,7 +40,7 @@ Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
       include FCS schools so series like Ohio State vs Youngstown State are findable.
 - [ ] **More sports**: CFBD doesn't cover women's basketball, baseball or hockey, so this
       would need another data source. Check what's free before planning.
-- [ ] **Team vs conference**: a team's record against every member of a conference, using
+- [x] **Team vs conference**: a team's record against every member of a conference, using
       the `conference` field from the team list.
 
 ## Code and reliability

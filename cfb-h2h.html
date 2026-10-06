@@ -27,10 +27,16 @@
     <p>Pick two FBS schools to see their all-time series.</p>
   </section>
 
+  <div class="modes" role="group" aria-label="Compare">
+    <button type="button" class="mode-btn" data-mode="team" aria-pressed="true">Team vs Team</button>
+    <button type="button" class="mode-btn" data-mode="conf" aria-pressed="false">Team vs Conference</button>
+  </div>
+
   <div class="card picker">
     <div class="input-wrap"><span class="input-logo"></span><input id="team1" list="teams" placeholder="Team 1 (e.g. Michigan)" autocomplete="off" aria-label="Team 1"></div>
     <button id="swap" class="swap" type="button" title="Swap teams" aria-label="Swap teams">&#8644;</button>
     <div class="input-wrap"><span class="input-logo"></span><input id="team2" list="teams" placeholder="Team 2 (e.g. Ohio State)" autocomplete="off" aria-label="Team 2"></div>
+    <div id="conf-wrap" class="input-wrap" hidden><select id="conf" aria-label="Conference"><option value="">Pick a conference</option></select></div>
     <datalist id="teams"></datalist>
     <button id="go">Compare</button>
   </div>
@@ -69,7 +75,10 @@ async function loadTeams() {
   try {
     const teams = await apiFetch("/teams/fbs");
     teamIndex = buildTeamIndex(teams, ["abbreviation", "alternateNames"],
-      t => ({ color: t.color, altColor: t.alternateColor, abbr: t.abbreviation, logos: t.logos }));
+      t => ({
+        color: t.color, altColor: t.alternateColor, abbr: t.abbreviation, logos: t.logos,
+        conference: t.conference === "FBS Independents" ? null : t.conference,
+      }));
     const datalist = document.getElementById("teams");
     datalist.innerHTML = teams
       .map(t => t.school)
@@ -77,12 +86,40 @@ async function loadTeams() {
       .map(name => `<option value="${esc(name)}">`)
       .join("");
     refreshInputLogos(teamIndex);
+    fillConferences(teamIndex);
   } catch (err) {
     setStatus("Couldn't load team list (typing still works): " + err.message, true);
   }
 }
 
+// Team vs conference: the API only has a per-pair matchup endpoint, so this
+// makes one (Worker-cached) request per conference member, 4 at a time.
+async function fetchVsMembers(team, members, onProgress) {
+  let done = 0;
+  return mapLimit(members, 4, async opponent => {
+    const data = await apiFetch(
+      `/teams/matchup?team1=${encodeURIComponent(team)}&team2=${encodeURIComponent(opponent)}`
+    );
+    onProgress(++done);
+    const games = data.games || [];
+    const last = games.slice().sort((a, b) => (b.season - a.season) || (b.week - a.week))[0];
+    const lastResult = !last ? null
+      : !last.winner && last.homeScore === last.awayScore ? "T"
+      : (last.winner || (last.homeScore > last.awayScore ? last.homeTeam : last.awayTeam)) === team ? "W" : "L";
+    return {
+      opponent,
+      wins: data.team1Wins || 0,
+      losses: data.team2Wins || 0,
+      ties: data.ties || 0,
+      games: games.length,
+      lastSeason: last ? last.season : null,
+      lastResult,
+    };
+  });
+}
+
 async function compare() {
+  if (getMode() === "conf") return compareConference(teamIndex, fetchVsMembers, compare);
   const raw1 = document.getElementById("team1").value.trim();
   const raw2 = document.getElementById("team2").value.trim();
   const resultEl = document.getElementById("result");
@@ -159,6 +196,8 @@ document.getElementById("go").addEventListener("click", compare);
 initSwap(compare, () => teamIndex);
 initCopyLink();
 initInputLogos(() => teamIndex);
+initModes(compare);
+initChartTips();
 initRivalries([
   ["Michigan", "Ohio State"],
   ["Alabama", "Auburn"],

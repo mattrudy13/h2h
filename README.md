@@ -9,8 +9,12 @@ basketball. A static site on GitHub Pages: https://mattrudy13.github.io/h2h/
   [CollegeBasketballData.com](https://collegebasketballdata.com). Scheduled games are listed as
   upcoming and don't count toward the record.
 
-Matchups can be linked: `cfb-h2h.html?t1=Michigan&t2=Ohio+State` runs that comparison on
-load, and the URL updates after each compare. Team names accept common abbreviations and
+Each matchup shows the series record, highlights (current and longest streaks, last
+meeting, biggest wins) and a record-by-decade chart. **Team vs Conference** mode shows a
+team's all-time record against every current member of a conference.
+
+Matchups can be linked: `cfb-h2h.html?t1=Michigan&t2=Ohio+State` (or `?t1=Michigan&conf=Big+Ten`)
+runs that comparison on load, and the URL updates after each compare. Team names accept common abbreviations and
 nicknames (e.g. UNC, OSU, "Ohio St"), and the page suggests close matches for typos.
 
 ## How it works
@@ -31,6 +35,10 @@ The Worker:
 - only forwards the endpoints the site uses (`/cfb/teams/fbs`, `/cfb/teams/matchup`,
   `/cbb/teams`, `/cbb/games`), so it can't be used as an open proxy for the key
 - caches successful responses for 6 hours to save API quota
+
+Football's Team vs Conference makes one matchup request per member (about 17 for the Big
+Ten), 4 at a time, because the API has no per-team history endpoint. Basketball's needs only
+one request.
 
 The Worker's URL lives in `proxy-config.js`. It isn't a secret.
 

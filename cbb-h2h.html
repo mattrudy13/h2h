@@ -27,10 +27,16 @@
     <p>Pick two men's programs to see their all-time series.</p>
   </section>
 
+  <div class="modes" role="group" aria-label="Compare">
+    <button type="button" class="mode-btn" data-mode="team" aria-pressed="true">Team vs Team</button>
+    <button type="button" class="mode-btn" data-mode="conf" aria-pressed="false">Team vs Conference</button>
+  </div>
+
   <div class="card picker">
     <div class="input-wrap"><span class="input-logo"></span><input id="team1" list="teams" placeholder="Team 1 (e.g. Duke)" autocomplete="off" aria-label="Team 1"></div>
     <button id="swap" class="swap" type="button" title="Swap teams" aria-label="Swap teams">&#8644;</button>
     <div class="input-wrap"><span class="input-logo"></span><input id="team2" list="teams" placeholder="Team 2 (e.g. North Carolina)" autocomplete="off" aria-label="Team 2"></div>
+    <div id="conf-wrap" class="input-wrap" hidden><select id="conf" aria-label="Conference"><option value="">Pick a conference</option></select></div>
     <datalist id="teams"></datalist>
     <button id="go">Compare</button>
   </div>
@@ -69,19 +75,48 @@ async function loadTeams() {
   try {
     const teams = await apiFetch("/teams");
     teamIndex = buildTeamIndex(teams, ["abbreviation", "shortDisplayName", "displayName"],
-      t => ({ color: t.primaryColor, altColor: t.secondaryColor, abbr: t.abbreviation, logos: t.logos }));
+      t => ({
+        color: t.primaryColor, altColor: t.secondaryColor, abbr: t.abbreviation, logos: t.logos,
+        conference: t.conference,
+      }));
     const names = [...new Set(teams.map(t => t.school))].sort();
     const datalist = document.getElementById("teams");
     datalist.innerHTML = names
       .map(name => `<option value="${esc(name)}">`)
       .join("");
     refreshInputLogos(teamIndex);
+    fillConferences(teamIndex);
   } catch (err) {
     setStatus("Couldn't load team list (typing still works): " + err.message, true);
   }
 }
 
+// Team vs conference: one request for the team's full game list, then a
+// tally per conference member. Only finished games count.
+async function fetchVsMembers(team, members, onProgress) {
+  const allGames = await apiFetch(`/games?team=${encodeURIComponent(team)}`);
+  onProgress(members.length);
+  const byOpp = new Map(members.map(m => [m.toLowerCase(), {
+    opponent: m, wins: 0, losses: 0, ties: 0, games: 0, lastSeason: null, lastResult: null, lastDate: 0,
+  }]));
+  for (const g of allGames) {
+    if (g.status !== "final") continue;
+    const homeIsTeam = g.homeTeam.toLowerCase() === team.toLowerCase();
+    const r = byOpp.get((homeIsTeam ? g.awayTeam : g.homeTeam).toLowerCase());
+    if (!r) continue;
+    const won = homeIsTeam ? g.homeWinner : g.awayWinner;
+    const lost = homeIsTeam ? g.awayWinner : g.homeWinner;
+    const result = won ? "W" : lost ? "L" : "T";
+    r.games++;
+    if (result === "W") r.wins++; else if (result === "L") r.losses++; else r.ties++;
+    const t = new Date(g.startDate).getTime();
+    if (t > r.lastDate) Object.assign(r, { lastDate: t, lastSeason: g.season, lastResult: result });
+  }
+  return [...byOpp.values()];
+}
+
 async function compare() {
+  if (getMode() === "conf") return compareConference(teamIndex, fetchVsMembers, compare);
   const raw1 = document.getElementById("team1").value.trim();
   const raw2 = document.getElementById("team2").value.trim();
   const resultEl = document.getElementById("result");
@@ -193,6 +228,8 @@ document.getElementById("go").addEventListener("click", compare);
 initSwap(compare, () => teamIndex);
 initCopyLink();
 initInputLogos(() => teamIndex);
+initModes(compare);
+initChartTips();
 initRivalries([
   ["Duke", "North Carolina"],
   ["Kansas", "Kentucky"],
