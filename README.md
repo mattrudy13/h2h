@@ -9,6 +9,10 @@ basketball. A static site on GitHub Pages: https://mattrudy13.github.io/h2h/
   [CollegeBasketballData.com](https://collegebasketballdata.com). Scheduled games are listed as
   upcoming and don't count toward the record.
 
+Matchups can be linked: `cfb-h2h.html?t1=Michigan&t2=Ohio+State` runs that comparison on
+load, and the URL updates after each compare. Team names accept common abbreviations and
+nicknames (e.g. UNC, OSU, "Ohio St"), and the page suggests close matches for typos.
+
 ## How it works
 
 Both APIs need a key, and anything a static page loads is public, so the pages never see
@@ -37,6 +41,7 @@ The Worker's URL lives in `proxy-config.js`. It isn't a secret.
 | `index.html`           | Landing page linking to both sports                  |
 | `cfb-h2h.html`         | Football page                                        |
 | `cbb-h2h.html`         | Basketball page                                      |
+| `common.js`            | Shared page code: team-name matching, links, swap    |
 | `proxy-config.js`      | Worker URL the pages call                            |
 | `worker/src/index.js`  | The Cloudflare Worker                                |
 | `worker/wrangler.toml` | Worker config                                        |

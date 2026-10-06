@@ -3,14 +3,14 @@
 Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
 
 ## Quick wins
-- [ ] **Mobile layout**: `cfb-h2h.html` and `cbb-h2h.html` have no `<meta name="viewport">`,
+- [x] **Mobile layout**: `cfb-h2h.html` and `cbb-h2h.html` have no `<meta name="viewport">`,
       so phones render them zoomed out. Add the tag and let the results table scroll
       sideways on narrow screens.
-- [ ] **Shareable links**: put the matchup in the URL (`cfb-h2h.html?t1=Michigan&t2=Ohio+State`),
+- [x] **Shareable links**: put the matchup in the URL (`cfb-h2h.html?t1=Michigan&t2=Ohio+State`),
       fill it in and run it on load, and update the URL on each compare. Makes results
       bookmarkable and easy to text to someone.
-- [ ] **Swap button** (⇄) between the two team inputs.
-- [ ] **Catch typos before calling the API**: an unrecognized name currently just reports "No
+- [x] **Swap button** (⇄) between the two team inputs.
+- [x] **Catch typos before calling the API**: an unrecognized name currently just reports "No
       games found". Check it against the loaded team list and suggest close matches (e.g.
       "UNC" → North Carolina, "Ohio St" → Ohio State).
 
