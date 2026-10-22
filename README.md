@@ -1,7 +1,22 @@
-# h2h
+# College head-to-head records
 
-All-time head-to-head records between any two college teams, for football and men's
-basketball. A static site on GitHub Pages: https://mattrudy13.github.io/h2h/
+Look up the all-time record between any two college teams in football or men's basketball, with every
+game in the series.
+
+**Site:** https://mattrudy13.github.io/h2h/
+
+## At a glance
+
+- **What it does:** shows the series record, streaks, last meeting, biggest wins and a record-by-decade
+  chart, or one team's record against every member of a conference. Team names accept nicknames and
+  typos, and every comparison has a shareable link.
+- **How it works:** a static site with no build step. The data APIs need a key, so the pages call a
+  small Cloudflare Worker that adds the key, only answers the site itself, only forwards the endpoints
+  the site uses, and caches responses to stay inside the free API quota.
+- **Built with:** JavaScript, Cloudflare Workers, GitHub Pages, and the CollegeFootballData and
+  CollegeBasketballData APIs.
+
+## Details
 
 - **Football** (`cfb-h2h.html`): series record, ties and every game, from
   [CollegeFootballData.com](https://collegefootballdata.com)
