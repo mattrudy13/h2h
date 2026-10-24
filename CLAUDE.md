@@ -44,8 +44,11 @@ removed for this reason; it's still in `.gitignore`).
 The Worker:
 - only answers `Origin: https://mattrudy13.github.io` and `localhost`/`127.0.0.1` (403
   otherwise; opening the pages as `file://` sends `Origin: null` and fails, so serve over HTTP).
-- only forwards allowlisted endpoints (`ALLOWED_PATHS`). **A page that needs a new endpoint
-  needs a Worker change and a redeploy**, or it gets 404.
+- only forwards allowlisted endpoints, each with its own query params (`ALLOWED`); other
+  params are dropped so they can't create new cache keys. Missing params get 400. **A page
+  that needs a new endpoint or param needs a Worker change and a redeploy**, or it gets 404/400.
+- limits each IP to 60 cache misses a minute (`UPSTREAM_LIMITER` in wrangler.toml), then 429.
+  The origin check alone can be faked by scripts.
 - Pushing to GitHub does **not** deploy the Worker. Deploy with `cd worker && npx wrangler deploy`
   (the user is logged in to wrangler on this Mac).
 

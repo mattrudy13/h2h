@@ -52,9 +52,9 @@ Ideas for the site, roughly in priority order. `[x]` done, `[~]` partly done.
       API, but an `esc()` helper costs nothing.
 - [x] **Smarter caching in the Worker**: finished seasons never change. Cache past-season
       results for days instead of 6 hours, and keep the current season short.
-- [ ] **Rate limit in the Worker**: the origin check stops other websites, but not scripts
-      that fake the `Origin` header. A per-IP limit (Cloudflare's rate-limiting binding)
-      would protect the API quota if the site were ever shared widely.
+- [x] **Rate limit in the Worker** (2026-10-24): 60 cache misses per minute per IP
+      (`UPSTREAM_LIMITER` binding), and only each endpoint's own query params are forwarded,
+      so junk params can't skip the cache.
 - [ ] **Smoke test in CI**: a GitHub Action that loads both pages against the deployed
       Worker and checks one known matchup, so an API or Worker break is caught on push
       instead of by a visitor.

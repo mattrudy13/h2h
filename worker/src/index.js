@@ -7,12 +7,15 @@ const UPSTREAMS = {
   cbb: "https://api.collegebasketballdata.com",
 };
 
-// Only the endpoints the site actually uses, so the Worker can't be used as
-// a general-purpose open proxy for the key.
-const ALLOWED_PATHS = {
-  cfb: ["/teams/fbs", "/teams/matchup"],
-  cbb: ["/teams", "/games"],
+// Only the endpoints the site actually uses, each with the query params it
+// takes, so the Worker can't be used as a general-purpose open proxy for the key.
+// Other params are dropped: they'd make a new cache key per request and let
+// anyone skip the cache and spend the API quota.
+const ALLOWED = {
+  cfb: { "/teams/fbs": [], "/teams/matchup": ["team1", "team2"] },
+  cbb: { "/teams": [], "/games": ["team"] },
 };
+const MAX_PARAM_LENGTH = 100;
 
 const ALLOWED_ORIGINS = ["https://mattrudy13.github.io"];
 const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
@@ -66,11 +69,20 @@ export default {
     const url = new URL(request.url);
     const [, sport, ...rest] = url.pathname.split("/");
     const path = "/" + rest.join("/");
-    if (!UPSTREAMS[sport] || !ALLOWED_PATHS[sport].includes(path)) {
+    const params = UPSTREAMS[sport] && Object.hasOwn(ALLOWED[sport], path) ? ALLOWED[sport][path] : null;
+    if (!params) {
       return new Response("Not found", { status: 404, headers: cors });
     }
+    const search = new URLSearchParams();
+    for (const name of params) {
+      const value = url.searchParams.get(name);
+      if (!value || value.length > MAX_PARAM_LENGTH) {
+        return new Response(`Missing or invalid ${name}`, { status: 400, headers: cors });
+      }
+      search.set(name, value);
+    }
 
-    const upstreamUrl = UPSTREAMS[sport] + path + url.search;
+    const upstreamUrl = UPSTREAMS[sport] + path + (params.length ? "?" + search : "");
     const cache = caches.default;
     const keyUrl = new URL(upstreamUrl);
     keyUrl.searchParams.set("cache_v", CACHE_VERSION);
@@ -78,6 +90,13 @@ export default {
 
     let upstream = await cache.match(cacheKey);
     if (!upstream) {
+      // Only cache misses spend quota, so only they count toward the per-IP limit.
+      // Varying team names still skips the cache, so the param allowlist alone isn't enough.
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      const { success } = await env.UPSTREAM_LIMITER.limit({ key: ip });
+      if (!success) {
+        return new Response("Too many requests, try again in a minute", { status: 429, headers: { ...cors, "Retry-After": "60" } });
+      }
       const res = await fetch(upstreamUrl, {
         headers: { Authorization: "Bearer " + env.CFBD_API_KEY, Accept: "application/json" },
       });

@@ -5,3 +5,14 @@ compatibility_date = "2026-10-01"
 # The API key is a secret, not a var — set it with:
 #   npx wrangler secret put CFBD_API_KEY
 # For local `wrangler dev`, put CFBD_API_KEY=... in worker/.dev.vars (gitignored).
+
+# Per-IP limit on requests that miss the cache (and so spend API quota). The origin check
+# can be faked by scripts. Team vs Conference makes ~17 uncached calls at once, so 60 a
+# minute leaves room for a real visitor. namespace_id is any number unique to this account.
+[[ratelimits]]
+name = "UPSTREAM_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60
