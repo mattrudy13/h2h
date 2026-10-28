@@ -6,61 +6,113 @@
 <title>College Head-to-Head</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header class="topbar">
-  <div class="wrap">
-    <a class="wordmark" href="index.html">Head<span>-to-</span>Head</a>
-    <nav class="tabs" aria-label="Sport">
-      <a href="cfb-h2h.html">Football</a>
-      <a href="cbb-h2h.html">Basketball</a>
-    </nav>
-  </div>
+<header class="site-head wrap">
+  <a class="brand" href="index.html"><span class="brand-tag slant">H2H</span><span class="brand-name">Head-to-Head</span></a>
+  <nav class="tabs" aria-label="Sport">
+    <a class="slant" href="cfb-h2h.html">Football</a>
+    <a class="slant" href="cbb-h2h.html">Basketball</a>
+  </nav>
 </header>
 
 <main class="wrap">
-  <section class="hero">
+  <section class="landing-hero">
     <h1>Settle the rivalry</h1>
     <p>All-time series records between any two college programs, game by game.</p>
   </section>
 
   <div class="sports">
-    <section class="card sport-card" data-sport="cfb">
-      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" aria-hidden="true">
-        <ellipse cx="50" cy="50" rx="44" ry="27" transform="rotate(-35 50 50)"/>
-        <path d="M37 63 63 37M44 47l6 6M49 42l6 6M39 52l6 6M54 37l6 6"/>
-      </svg>
-      <h2><a href="cfb-h2h.html">Football</a></h2>
+    <section class="sport-col" data-sport="cfb">
+      <h2 class="cap"><span>Football</span></h2>
       <p>Every FBS series back to the 1800s, including bowl games.</p>
-      <div class="chips">
-        <a class="chip" href="cfb-h2h.html?t1=Michigan&amp;t2=Ohio+State">Michigan vs Ohio State</a>
-        <a class="chip" href="cfb-h2h.html?t1=Alabama&amp;t2=Auburn">Alabama vs Auburn</a>
-        <a class="chip" href="cfb-h2h.html?t1=Army&amp;t2=Navy">Army vs Navy</a>
-      </div>
-      <span class="go-label">Open football &rarr;</span>
+      <div class="rivs"></div>
+      <a class="sport-cta" href="cfb-h2h.html">Open football &rarr;</a>
     </section>
 
-    <section class="card sport-card" data-sport="cbb">
-      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="5" aria-hidden="true">
-        <circle cx="50" cy="50" r="44"/>
-        <path d="M6 50h88M50 6v88M19 19c14 14 14 48 0 62M81 19c-14 14-14 48 0 62"/>
-      </svg>
-      <h2><a href="cbb-h2h.html">Basketball</a></h2>
-      <p>Men's college basketball, with tournament games and upcoming meetings.</p>
-      <div class="chips">
-        <a class="chip" href="cbb-h2h.html?t1=Duke&amp;t2=North+Carolina">Duke vs North Carolina</a>
-        <a class="chip" href="cbb-h2h.html?t1=Kansas&amp;t2=Kentucky">Kansas vs Kentucky</a>
-        <a class="chip" href="cbb-h2h.html?t1=Indiana&amp;t2=Purdue">Indiana vs Purdue</a>
-      </div>
-      <span class="go-label">Open basketball &rarr;</span>
+    <section class="sport-col" data-sport="cbb">
+      <h2 class="cap"><span>Basketball</span></h2>
+      <p>Men's basketball since 1950, plus upcoming games.</p>
+      <div class="rivs"></div>
+      <a class="sport-cta" href="cbb-h2h.html">Open basketball &rarr;</a>
     </section>
   </div>
 </main>
 
 <footer class="wrap">Data via <a href="https://collegefootballdata.com" target="_blank" rel="noopener">CollegeFootballData.com</a> and <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a></footer>
+
+<script src="proxy-config.js"></script>
+<script src="common.js"></script>
+<script>
+// Colors and abbreviations come from each API's team list. They're written out
+// here so the landing page doesn't have to download two full team lists.
+const RIVALRIES = {
+  cfb: [
+    [["Michigan", "MICH", "#00274c", "#ffcb05"], ["Ohio State", "OSU", "#ba0c2f", "#a7b1b7"]],
+    [["Alabama", "ALA", "#9e1b32", "#ffffff"], ["Auburn", "AUB", "#0c2340", "#f26522"]],
+    [["Army", "ARMY", "#000000", "#d3bc8d"], ["Navy", "NAVY", "#00225b", "#b5a67c"]],
+  ],
+  cbb: [
+    [["Duke", "DUKE", "#013088", "#ffffff"], ["North Carolina", "UNC", "#7bafd4", "#13294b"]],
+    [["Kansas", "KU", "#0051ba", "#e8000d"], ["Kentucky", "UK", "#0033a0", "#ffffff"]],
+    [["Indiana", "IU", "#990000", "#edebeb"], ["Purdue", "PUR", "#000000", "#cfb991"]],
+  ],
+};
+
+const API = (window.H2H_PROXY || "").replace(/\/$/, "");
+
+function rivalryCard(sport, [t1, ab1, col1, alt1], [t2, ab2, col2, alt2]) {
+  // Same color rule as the matchup page, so a rivalry looks the same on both.
+  const [c1, c2] = matchupColors({ color: col1 }, { color: col2, altColor: alt2 }, t2);
+  const a = document.createElement("a");
+  a.className = "riv";
+  a.href = `${sport}-h2h.html${matchupHref(t1, t2)}`;
+  a.setAttribute("aria-label", `${t1} vs ${t2}`);
+  a.style.cssText = `--c1:${c1};--c2:${c2};--f1:${textOn(c1)};--f2:${textOn(c2)}`;
+  a.innerHTML = `
+    <div class="riv-row" aria-hidden="true">
+      <div class="riv-team t1"><span class="riv-abbr">${esc(ab1)}</span><span class="riv-num">–</span></div>
+      <div class="riv-mid">VS</div>
+      <div class="riv-team t2"><span class="riv-num">–</span><span class="riv-abbr">${esc(ab2)}</span></div>
+    </div>
+    <div class="riv-meta"><span class="riv-line">${esc(t1)} vs ${esc(t2)}</span><span class="riv-open">OPEN &rarr;</span></div>`;
+  return a;
+}
+
+// Fills in a card from the Worker's /record route. If it fails, the card
+// keeps its dashes and still links to the matchup.
+async function loadRecord(sport, card, t1, t2) {
+  try {
+    const res = await fetch(`${API}/${sport}/record?team1=${encodeURIComponent(t1)}&team2=${encodeURIComponent(t2)}`);
+    if (!res.ok) return;
+    const r = await res.json();
+    const [n1, n2] = card.querySelectorAll(".riv-num");
+    n1.textContent = r.wins1;
+    n2.textContent = r.wins2;
+    if (r.ties) card.querySelector(".riv-mid").textContent = `${r.ties} T`;
+    const lead = r.wins1 === r.wins2 ? "Series tied" : `${r.wins1 > r.wins2 ? r.team1 : r.team2} leads`;
+    const bits = [plural(r.games, "meeting"), r.next ? `next ${fmtDate(r.next)}` : null].filter(Boolean);
+    const line = card.querySelector(".riv-line");
+    line.innerHTML = `<b>${esc(lead)}</b> · ${esc(bits.join(" · "))}`;
+    card.setAttribute("aria-label",
+      `${r.team1} ${r.wins1}, ${r.team2} ${r.wins2}${r.ties ? `, ${plural(r.ties, "tie")}` : ""}. ${lead}, ${bits.join(", ")}`);
+  } catch {
+    // Network error: leave the placeholder card.
+  }
+}
+
+for (const [sport, pairs] of Object.entries(RIVALRIES)) {
+  const box = document.querySelector(`.sport-col[data-sport="${sport}"] .rivs`);
+  for (const [a, b] of pairs) {
+    const card = rivalryCard(sport, a, b);
+    box.appendChild(card);
+    if (API) loadRecord(sport, card, a[0], b[0]);
+  }
+}
+</script>
 
 </body>
 </html>
