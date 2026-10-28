@@ -118,7 +118,7 @@ main.wrap { display: flex; flex-direction: column; gap: 34px; padding-top: 34px;
 
 /* ---- Picker ---- */
 .picker { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
-.field { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.field { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .field label { font: 700 12px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .input-box { position: relative; }
 .input-box input, .input-box select {
@@ -227,8 +227,9 @@ button.swap:hover { border-color: var(--fg); }
   font: 700 clamp(22px, 2.8vw, 34px) / 1.05 var(--display);
   letter-spacing: .02em;
   text-transform: uppercase;
-  /* Break between words, and inside a word only if it can't fit at all. */
+  /* Break between words; a word too long for the block hyphenates instead of overflowing. */
   overflow-wrap: break-word;
+  hyphens: auto;
 }
 .bug-team.t2 .bug-name { text-align: right; }
 .bug-num { font: 700 clamp(56px, 7.5vw, 92px) / 1 var(--display); font-variant-numeric: tabular-nums; }
@@ -504,22 +505,22 @@ footer a { color: var(--muted); }
 .sport-cta:focus-visible { clip-path: none; }
 
 /* ---- Narrower screens ---- */
+@media (max-width: 1100px) {
+  .logo.disc { width: 64px; height: 64px; padding: 9px; }
+  .logo.disc .initials { font-size: 20px; }
+  .bug-team { gap: 14px; }
+  .bug-team.t1 { padding: 18px 46px 18px 20px; }
+  .bug-team.t2 { padding: 18px 20px 18px 46px; }
+  .bug-mid { flex-basis: 130px; margin: 0 -26px; }
+}
 @media (max-width: 900px) {
   .notes, .boxes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 640px) {
-  .wrap { padding: 0 16px; }
-  .site-head { padding-top: 16px; gap: 12px 16px; }
-  .modes { margin-left: 0; flex-basis: 100%; }
-  .tabs a { padding: 10px 16px; }
-  main.wrap { gap: 26px; padding-top: 24px; }
-  #result, .matchup { gap: 26px; }
-  .field { flex-basis: 100%; }
-  button.swap { margin: 0 auto; transform: rotate(90deg); }
-  #go { flex-basis: 100%; }
-  #status { margin-top: -12px; }
-  #suggest { margin-top: -16px; }
-
+/* Between the phone layout and full width there's no room for the logo discs in the bug. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .bug .logo.disc { display: none; }
+}
+@media (max-width: 760px) {
   /* The bug stacks: team 1, a thin middle row, team 2. Slants would clip stacked blocks. */
   .bug-row { flex-direction: column; min-height: 0; }
   .bug-team.t1, .bug-team.t2 { clip-path: none; padding: 14px 16px; gap: 14px; }
@@ -536,6 +537,20 @@ footer a { color: var(--muted); }
   .skel-row { height: 220px; flex-direction: column; }
   .skel-row .skel:first-child, .skel-row .skel:last-child { clip-path: none; margin: 0; }
   .skel-row .skel:last-child { margin-top: 6px; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .site-head { padding-top: 16px; gap: 12px 16px; }
+  .modes { margin-left: 0; flex-basis: 100%; }
+  .tabs a { padding: 10px 16px; }
+  main.wrap { gap: 26px; padding-top: 24px; }
+  #result, .matchup { gap: 26px; }
+  .field { flex-basis: 100%; }
+  button.swap { margin: 0 auto; transform: rotate(90deg); }
+  #go { flex-basis: 100%; }
+  #status { margin-top: -12px; }
+  #suggest { margin-top: -16px; }
+
 
   .notes { gap: 8px; }
   .note { padding: 12px; }
@@ -548,4 +563,10 @@ footer a { color: var(--muted); }
   .riv-abbr { font-size: 17px; }
   .sport-cta { align-self: stretch; text-align: center; }
   table { font-size: 14px; }
+}
+@media (max-width: 380px) {
+  .logo.disc { width: 44px; height: 44px; padding: 6px; }
+  .logo.disc .initials { font-size: 14px; }
+  .bug-team.t1, .bug-team.t2 { gap: 10px; }
+  .bug-num { font-size: 44px; }
 }
