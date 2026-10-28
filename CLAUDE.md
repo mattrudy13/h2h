@@ -4,11 +4,13 @@ All-time head-to-head records between college teams (football and men's basketba
 published as a static site on GitHub Pages: https://mattrudy13.github.io/h2h/
 See README.md for usage, local running and deploy commands; ENHANCEMENTS.md for the idea list.
 
-## Status (2026-10-05)
+## Status (2026-10-27)
 
 Live and working end to end:
-- Team vs Team: scoreboard (logos, team colors, record bar), series highlights (current and
-  longest streaks, last meeting, biggest wins), record-by-decade chart, games table.
+- Team vs Team: score bug (logos, team colors, record), series notes (current and longest
+  streaks, last meeting, biggest wins), wins-by-decade chart, recent games as score boxes
+  plus a full games table behind a button.
+- Landing page: six rivalry score graphics with live records from the Worker's `/record` route.
 - Team vs Conference: a team's record against every current member of a conference.
 - Shareable URLs (`?t1=&t2=`, `?t1=&conf=`), typo/alias handling, swap, copy link, mobile
   layout, dark mode, loading skeleton, rivalry quick picks, landing page.
@@ -20,11 +22,13 @@ date-range filter, Worker rate limit, CI smoke test, FCS teams in the football p
 ## Layout
 
 - `index.html`: landing page. `cfb-h2h.html` / `cbb-h2h.html`: the two sport pages.
-- `style.css`: all styles for all three pages. Sport accent via `<body data-sport="cfb|cbb">`;
-  conference mode via `body[data-mode="conf"]` (set by `setMode()`).
+- `style.css`: all styles for all three pages. Sport accent via `<body data-sport="cfb|cbb">`
+  (amber / teal); conference mode via `body[data-mode="conf"]` (set by `setMode()`);
+  `body.has-result` (set by `initRivalries`) hides the page heading visually once a result shows.
 - `common.js`: everything shared: name resolution, team metadata (colors/logos/conferences),
-  scoreboard + highlights + decade chart + games table rendering, conference view, URL
+  score bug + series notes + decade chart + game boxes/table rendering, conference view, URL
   handling, swap, copy link, rivalry chips. Plain global functions, no modules or build step.
+  `index.html` loads it too, for `matchupColors`, `textOn`, `esc` and the formatting helpers.
 - `proxy-config.js`: the Worker URL (`window.H2H_PROXY`). Not a secret.
 - `worker/`: the Cloudflare Worker (`src/index.js`, `wrangler.toml`). `worker/.dev.vars` holds
   the API key for `wrangler dev` and is gitignored.
@@ -44,6 +48,10 @@ removed for this reason; it's still in `.gitignore`).
 The Worker:
 - only answers `Origin: https://mattrudy13.github.io` and `localhost`/`127.0.0.1` (403
   otherwise; opening the pages as `file://` sends `Origin: null` and fails, so serve over HTTP).
+- serves `/cfb/record` and `/cbb/record?team1=&team2=` itself: series totals (`wins1`,
+  `wins2`, `ties`, `games`, `first`, `next`) computed from the cached upstream data, with the
+  small result cached too. The landing page uses it so it never downloads a basketball
+  history (~1.7 MB per team) just to show a record.
 - only forwards allowlisted endpoints, each with its own query params (`ALLOWED`); other
   params are dropped so they can't create new cache keys. Missing params get 400. **A page
   that needs a new endpoint or param needs a Worker change and a redeploy**, or it gets 404/400.
@@ -92,13 +100,28 @@ guessing. Canonical names are written back into the inputs and the URL.
 
 ## Design choices (frontend)
 
-- "Scoreboard" visual direction (chosen by the user): Barlow Condensed (display) + Inter (body)
-  from Google Fonts, dark top bar with sport tabs, team-colored scoreboard card.
-- Team colors carry identity; text stays in text colors (`--fg`/`--muted`), never team colors.
+- "Broadcast graphic" direction (chosen by the user 2026-10-27, from four mockups:
+  https://claude.ai/artifact/F4gqwoFF7t5dHikRjv22Kk): Chakra Petch (display) + Manrope (body),
+  white page, slanted TV score-bug blocks, caption-bar section headings with an accent notch.
+  No dark top bar: the user rejected it as too much like the other sites. Football accent is
+  amber `#f2a900`, basketball teal `#2dd4bf`. Dark mode follows the system setting.
+- Team colors fill the score-bug blocks (`--c1`/`--c2`); text on them is white unless the
+  color is light (`textOn`, 3:1, e.g. Carolina blue gets dark text).
+- Marks drawn on the page background (decade bars, card stripes, dots) use `--mark1`/`--mark2`
+  from `markPair`: in dark mode a color that nearly vanishes (navy) switches to its alternate
+  color or a lighter blend, and team 2 is kept distinct from team 1.
 - If the two teams' colors are too close (`colorDistance < 90`), team 2 uses its alternate
-  color, else the farthest `FALLBACK_COLORS` entry (`matchupColors`).
-- Decade chart: mirrored bars on one shared scale, ties only in the hover/focus tooltip
-  (one `.chart-tip` per chart, listeners delegated on `document` in `initChartTips`).
+  color, else the farthest `FALLBACK_COLORS` entry (`matchupColors`). Known side effect:
+  Kansas vs Kentucky shows Kentucky in orange (both blue, Kentucky's alternate is white).
+- Series notes: six cards in a 2x3 grid (the user asked for symmetry); two columns on phones.
+- Decade chart: one column per decade, team 1 above the line, team 2 below, on one scale;
+  ties printed under the decade. No hover tooltips (the user avoids tooltips).
+- Every meeting: the newest six games as score boxes (upcoming first), then a button opens
+  the full table (`initGamesToggle`, delegated on `document`).
+- Logos on the score bug sit in white discs (`logoHtml(..., "disc")`, light-mode logo) so
+  they show on any team color.
+- Slanted controls use `clip-path`, which would cut off focus rings, so `.slant:focus-visible`
+  drops the clip.
 - Escape all API text with `esc()` before putting it in HTML; build user-typed text with
   `textContent`.
 - Copy link, opponent links and swap use document-level delegation because results are
@@ -112,7 +135,7 @@ guessing. Canonical names are written back into the inputs and the URL.
   temporarily (switch back before committing).
 - Testing has been done with Playwright from the apartments repo's venv
   (`../apartments/.venv/bin/python`, Chromium installed there): load pages headless, assert on
-  `#status`, `.scoreboard`, `.sb-nums`, `.hl`, `.dec-row`, check
+  `#status`, `.bug`, `.bug-num`, `.note`, `.dec-col`, `.box`, `.riv-num` (landing), check
   `document.documentElement.scrollWidth <= 375` at phone width, light and dark
   (`color_scheme="dark"`), and no console errors or failed responses. Screenshot and look
   at layout changes before shipping.

@@ -49,6 +49,8 @@ The Worker:
 - only answers requests from `https://mattrudy13.github.io` and `localhost`
 - only forwards the endpoints the site uses (`/cfb/teams/fbs`, `/cfb/teams/matchup`,
   `/cbb/teams`, `/cbb/games`), so it can't be used as an open proxy for the key
+- answers `/cfb/record` and `/cbb/record?team1=&team2=` itself with just the series totals,
+  so the landing page's six rivalry records don't download whole basketball histories
 - caches successful responses to save API quota: team lists for 7 days; matchups and game
   lists for 12 hours in season (football Aug–Jan, basketball Nov–Apr) and 7 days off-season.
   Browsers keep their copy for at most 1 hour. To clear Cloudflare's cache early, bump
@@ -64,7 +66,7 @@ The Worker's URL lives in `proxy-config.js`. It isn't a secret.
 
 | Path                   | What it is                                           |
 |------------------------|------------------------------------------------------|
-| `index.html`           | Landing page linking to both sports                  |
+| `index.html`           | Landing page: both sports and six rivalry records    |
 | `cfb-h2h.html`         | Football page                                        |
 | `cbb-h2h.html`         | Basketball page                                      |
 | `style.css`            | Shared styles for all three pages (light and dark)   |
