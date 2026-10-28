@@ -1,6 +1,6 @@
 // Shared by cfb-h2h.html and cbb-h2h.html: team-name resolution (aliases and
-// typos), team colors and logos, the scoreboard and games table, shareable
-// ?t1=&t2= links, the swap button and the loading skeleton.
+// typos), team colors and logos, the score bug, series notes, decade chart and
+// game list, shareable ?t1=&t2= links, the swap button and the loading skeleton.
 // Pages provide the elements #team1, #team2, #swap, #status, #suggest,
 // #result and #rivalries.
 
@@ -142,7 +142,7 @@ function showSuggestions(input, raw, suggestions, onPick) {
   for (const name of suggestions) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "chip";
+    chip.className = "chip slant";
     chip.textContent = name;
     chip.addEventListener("click", () => {
       input.value = name;
@@ -176,6 +176,49 @@ function colorDistance(a, b) {
 
 function isNearWhite(hex) {
   return hexToRgb(hex).every(v => v > 225);
+}
+
+// WCAG relative luminance and contrast ratio.
+function luminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map(v => {
+    v /= 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Text on a team-colored block: white, unless the color is light (e.g. Carolina blue).
+// Block text is large and bold, so 3:1 is enough.
+function textOn(hex) {
+  return contrast(hex, "#ffffff") >= 3 ? "#ffffff" : "#10141b";
+}
+
+function mix(hex, other, t) {
+  const a = hexToRgb(hex), b = hexToRgb(other);
+  return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+
+// Page backgrounds from style.css (--bg), light and dark.
+const LIGHT_BG = "#ffffff";
+const DARK_BG = "#0d1117";
+
+// Colors for bars, card stripes and dots drawn on the page background. A team
+// color that nearly vanishes there (navy on the dark background) is swapped for
+// its alternate color, else blended toward white (dark) or black (light). Team 2
+// then takes the first option that stays distinct from team 1.
+function markPair(bg, [c1, alt1], [c2, alt2]) {
+  const toward = bg === DARK_BG ? "#ffffff" : "#000000";
+  const options = (c, alt) => [c, alt && !isNearWhite(alt) ? alt : null, mix(c, toward, 0.5), alt]
+    .filter(x => x && contrast(x, bg) >= 2);
+  const o1 = options(c1, alt1), o2 = options(c2, alt2);
+  const m1 = o1[0] || c1;
+  const m2 = o2.find(x => colorDistance(x, m1) >= 90) || o2[0] || c2;
+  return [m1, m2];
 }
 
 // Stable color for teams the API has no color for.
@@ -227,14 +270,18 @@ function initials(name, abbr) {
 }
 
 // Logo with a colored-initials fallback for teams with no (or a broken) logo.
+// The "disc" size sits on a white circle, so it always uses the light-mode logo.
 function logoHtml(meta, name, size) {
+  const dark = meta.logoDark && size !== "disc"
+    ? `<source media="(prefers-color-scheme: dark)" srcset="${esc(meta.logoDark)}">` : "";
   const img = meta.logo
-    ? `<picture>${meta.logoDark ? `<source media="(prefers-color-scheme: dark)" srcset="${esc(meta.logoDark)}">` : ""}<img src="${esc(meta.logo)}" alt="" loading="lazy" onerror="this.closest('.logo').classList.add('no-img')"></picture>`
+    ? `<picture>${dark}<img src="${esc(meta.logo)}" alt="" loading="lazy" onerror="this.closest('.logo').classList.add('no-img')"></picture>`
     : "";
   return `<span class="logo ${size}${meta.logo ? "" : " no-img"}" style="--team:${meta.color}" aria-hidden="true">${img}<span class="initials">${esc(initials(name, meta.abbr))}</span></span>`;
 }
 
-// Small logo inside each input once it names a known team.
+// Small logo inside each input, and the team's color on its left edge, once it
+// names a known team.
 function refreshInputLogos(index) {
   if (!index) return;
   for (const id of ["team1", "team2"]) {
@@ -246,6 +293,8 @@ function refreshInputLogos(index) {
     const name = index.bySchool.get(key) || (aliasHits.length === 1 ? aliasHits[0] : null);
     wrap.classList.toggle("has-logo", !!name);
     slot.innerHTML = name ? logoHtml(teamMeta(index, name), name, "sm") : "";
+    if (name) wrap.style.setProperty("--team", teamMeta(index, name).color);
+    else wrap.style.removeProperty("--team");
   }
 }
 
@@ -258,86 +307,99 @@ function initInputLogos(getIndex) {
 
 // ---- Results ----
 
-// "121 games · 1897–2025", "1 game · 2015"
-function gamesSummary(count, seasons) {
-  const lo = Math.min(...seasons);
-  const hi = Math.max(...seasons);
-  return `${count} game${count === 1 ? "" : "s"} · ${lo === hi ? lo : `${lo}–${hi}`}`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function capHtml(text) {
+  return `<h2 class="cap"><span>${esc(text)}</span></h2>`;
 }
 
 function renderSkeleton() {
   document.getElementById("result").innerHTML = `
-    <div class="card skeleton" aria-hidden="true">
-      <div class="skel-row"><div class="skel circle"></div><div class="skel nums"></div><div class="skel circle"></div></div>
-      <div class="skel line"></div>
-      <div class="skel text"></div>
+    <div class="skeleton" aria-hidden="true">
+      <div class="skel-row"><div class="skel"></div><div class="skel"></div></div>
+      <div class="skel strip"></div>
     </div>`;
 }
 
-// `rows` are normalized games:
-// { date, season, badges: [], home, away, homePts, awayPts, winner (name or null), upcoming }
-function renderMatchup({ team1, team2, wins1, wins2, ties, metaLine, rows }, index) {
+const numClass = n => (Number(n) >= 100 ? "bug-num long" : "bug-num");
+
+// The score bug: two team blocks with a middle block, over an accent strip.
+// `left`/`right` are { logo, name, num }; `mid` is [label, value]; `strip` is a list of phrases.
+function bugHtml({ left, right, mid, strip, summary }) {
+  const parts = strip.filter(Boolean).map(s => `<span>${esc(s)}</span>`).join(`<span class="sep" aria-hidden="true">/</span>`);
+  return `
+    <section class="bug">
+      <h2 class="sr-only">${esc(summary)}</h2>
+      <div class="bug-row" aria-hidden="true">
+        <div class="bug-team t1">${left.logo}<div class="bug-name">${esc(left.name)}</div><div class="${numClass(left.num)}">${esc(left.num)}</div></div>
+        <div class="bug-mid"><small>${esc(mid[0])}</small><b>${esc(mid[1])}</b></div>
+        <div class="bug-team t2"><div class="${numClass(right.num)}">${esc(right.num)}</div><div class="bug-name">${esc(right.name)}</div>${right.logo}</div>
+      </div>
+      <div class="bug-strip">${parts}<button id="copy-link" class="link-btn" type="button">Copy link</button></div>
+    </section>`;
+}
+
+// Sets the CSS variables the result is drawn with: block colors, text on them,
+// and the page-background mark colors for light and dark mode.
+function colorVars(c1, alt1, c2, alt2) {
+  const [l1, l2] = markPair(LIGHT_BG, [c1, alt1], [c2, alt2]);
+  const [d1, d2] = markPair(DARK_BG, [c1, alt1], [c2, alt2]);
+  return `--c1:${c1};--c2:${c2};--f1:${textOn(c1)};--f2:${textOn(c2)};--m1:${l1};--m2:${l2};--m1d:${d1};--m2d:${d2}`;
+}
+
+// `rows` are normalized games, newest first:
+// { date, season, site, badges: [], home, away, homePts, awayPts, winner (name or null), upcoming }
+function renderMatchup({ team1, team2, wins1, wins2, ties, note, rows }, index) {
   const m1 = teamMeta(index, team1);
   const m2 = teamMeta(index, team2);
   const [c1, c2] = matchupColors(m1, m2, team2);
-  const colorOf = n => {
-    const k = String(n).toLowerCase();
-    return k === team1.toLowerCase() ? c1 : k === team2.toLowerCase() ? c2 : null;
-  };
-
-  const verdict = wins1 === wins2 ? "Series tied"
-    : `${wins1 > wins2 ? team1 : team2} leads the series`;
-  const cls = (a, b) => (a >= b ? "" : "trail");
-  const total = wins1 + wins2 + ties;
-
-  const board = `
-    <section class="card scoreboard" style="--c1:${c1};--c2:${c2}">
-      <div class="sb-team">${logoHtml(m1, team1, "lg")}<div class="sb-name">${esc(team1)}</div></div>
-      <div class="sb-center">
-        <div class="sb-nums"><span class="${cls(wins1, wins2)}">${wins1}</span><span class="dash">–</span><span class="${cls(wins2, wins1)}">${wins2}</span></div>
-        <div class="sb-verdict">${esc(verdict)}</div>
-        ${ties ? `<span class="pill sb-ties">${ties} tie${ties === 1 ? "" : "s"}</span>` : ""}
-      </div>
-      <div class="sb-team">${logoHtml(m2, team2, "lg")}<div class="sb-name">${esc(team2)}</div></div>
-      ${total ? `<div class="sb-bar" role="img" aria-label="${wins1} ${esc(team1)} wins, ${ties} ties, ${wins2} ${esc(team2)} wins">
-        <i class="b1" style="flex:${wins1}"></i><i class="bt" style="flex:${ties}"></i><i class="b2" style="flex:${wins2}"></i>
-      </div>` : ""}
-      <div class="sb-meta"><span>${esc(metaLine)}</span><button id="copy-link" class="link-btn" type="button">Copy link</button></div>
-    </section>`;
-
-  const rowHtml = g => {
-    const homeWon = !g.upcoming && g.winner && g.winner === g.home;
-    const awayWon = !g.upcoming && g.winner && g.winner === g.away;
-    const score = g.upcoming ? "—"
-      : `${homeWon ? `<b>${esc(g.homePts)}</b>` : esc(g.homePts ?? "?")}–${awayWon ? `<b>${esc(g.awayPts)}</b>` : esc(g.awayPts ?? "?")}`;
-    const winnerCell = g.upcoming ? `<span class="pill">Upcoming</span>`
-      : g.winner ? `<span class="dot" style="${colorOf(g.winner) ? `background:${colorOf(g.winner)}` : ""}"></span>${esc(g.winner)}`
-      : `<span class="dot"></span>Tie`;
-    const badges = (g.badges || []).map(b => `<span class="pill${b.post ? " post" : ""}">${esc(b.text)}</span>`).join(" ");
-    return `<tr${g.upcoming ? ' class="upcoming"' : ""}>
-      <td>${fmtDate(g.date)}</td>
-      <td>${esc(g.season)} ${badges}</td>
-      <td class="team${homeWon ? " won" : ""}">${esc(g.home)}</td>
-      <td class="team${awayWon ? " won" : ""}">${esc(g.away)}</td>
-      <td class="score">${score}</td>
-      <td class="winner">${winnerCell}</td>
-    </tr>`;
-  };
-
-  const table = `
-    <section class="card games">
-      <div class="games-head"><h2 class="section-label">Every meeting</h2></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Season</th><th>Home</th><th>Away</th><th>Score</th><th>Winner</th></tr></thead>
-          <tbody>${rows.map(rowHtml).join("")}</tbody>
-        </table>
-      </div>
-    </section>`;
+  const ab = [initials(team1, m1.abbr), initials(team2, m2.abbr)];
 
   const stats = seriesStats(rows, team1, team2);
-  document.getElementById("result").innerHTML =
-    board + highlightsHtml(stats, team1, team2, colorOf) + decadesHtml(stats.games, team1, team2, c1, c2) + table;
+  const played = stats.games;
+  const upcoming = rows.filter(g => g.upcoming).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const seasons = played.map(g => Number(g.season));
+  const first = seasons.length ? Math.min(...seasons) : null;
+  const lastSeason = seasons.length ? Math.max(...seasons) : null;
+
+  const leader = !played.length ? "No games played yet"
+    : wins1 === wins2 ? "Series tied"
+    : `${wins1 > wins2 ? team1 : team2} leads series`;
+  const last = stats.last;
+  const lastWinner = last && stats.side(last);
+  const lastLine = !last ? null
+    : `Last: ${lastWinner ? ab[sameTeam(lastWinner, team1) ? 0 : 1] : "Tie"} ${winnerFirstScore(last, lastWinner)}`;
+  const mid = ties ? ["All-time", `${ties} T`]
+    : first ? ["Since", first]
+    : ["Next", upcoming[0] ? fmtDate(upcoming[0].date) : "—"];
+
+  const board = bugHtml({
+    left: { logo: logoHtml(m1, team1, "disc"), name: team1, num: wins1 },
+    right: { logo: logoHtml(m2, team2, "disc"), name: team2, num: wins2 },
+    mid,
+    strip: [
+      leader,
+      played.length ? plural(played.length, "meeting") : null,
+      first ? (first === lastSeason ? `${first}` : `${first}–${lastSeason}`) : null,
+      lastLine,
+      upcoming[0] ? `Next: ${fmtDate(upcoming[0].date)}` : null,
+    ],
+    summary: `${team1} ${wins1}, ${team2} ${wins2}${ties ? `, ${plural(ties, "tie")}` : ""}`,
+  });
+
+  document.getElementById("result").innerHTML = `
+    <div class="matchup" style="${colorVars(c1, m1.altColor, c2, m2.altColor)}">
+      <div>${board}${note ? `<p class="bug-note">${esc(note)}</p>` : ""}</div>
+      ${highlightsHtml(stats, team1, team2, ab)}
+      ${decadesHtml(played, team1, team2)}
+      ${gamesHtml(rows, team1, team2, played.length)}
+    </div>`;
+}
+
+// "27–9": the winner's score first.
+function winnerFirstScore(g, winner) {
+  const hp = g.homePts ?? "?", ap = g.awayPts ?? "?";
+  return winner && sameTeam(winner, g.away) ? `${ap}–${hp}` : `${hp}–${ap}`;
 }
 
 // ---- Series highlights ----
@@ -373,46 +435,44 @@ function seriesStats(rows, team1, team2) {
   return { games, current, longest, biggest, last: games[games.length - 1] || null, side };
 }
 
-function highlightsHtml(stats, team1, team2, colorOf) {
+// Six cards, three across: current streak, last meeting, then longest streak
+// and biggest win for each team. Each card's top stripe is the team it's about.
+function highlightsHtml(stats, team1, team2, ab) {
   if (!stats.games.length) return "";
-  const dot = name => `<span class="dot" style="background:${colorOf(name)}"></span>`;
+  const markOf = t => (!t ? "var(--line)" : sameTeam(t, team1) ? "var(--mark1)" : "var(--mark2)");
+  const abOf = t => (sameTeam(t, team1) ? ab[0] : ab[1]);
   const shortYears = (a, b) => (a === b ? `${a}` : `${a}–${String(b).slice(String(a).slice(0, 2) === String(b).slice(0, 2) ? 2 : 0)}`);
+  const card = (label, value, sub, team) => `
+    <div class="note" style="--mark:${markOf(team)}">
+      <span class="note-label">${esc(label)}</span>
+      <span class="note-value">${esc(value)}</span>
+      <span class="note-sub">${esc(sub)}</span>
+    </div>`;
 
   const cur = stats.current;
-  const curTile = cur
-    ? `<div class="hl-value">${cur.n}</div><div class="hl-sub">${dot(cur.team)}${esc(cur.team)} ${cur.n === 1 ? "won the last meeting" : "wins in a row"}</div>`
-    : `<div class="hl-value">—</div><div class="hl-sub">Last meeting was a tie</div>`;
-
   const last = stats.last;
   const lastWinner = stats.side(last);
-  const hp = last.homePts ?? "?", ap = last.awayPts ?? "?";
-  const lastScore = lastWinner && sameTeam(lastWinner, last.away) ? `${ap}–${hp}` : `${hp}–${ap}`;
-  const lastTile = `<div class="hl-value">${esc(lastScore)}</div>
-    <div class="hl-sub">${lastWinner ? `${dot(lastWinner)}${esc(lastWinner)}` : "Tie"} · ${esc(fmtDate(last.date))}</div>`;
-
-  const twoRows = (label, fmt) => `<div class="card hl wide"><div class="hl-label">${label}</div><div class="hl-rows">
-    ${[team1, team2].map(t => `<div class="hl-row">${dot(t)}<span class="hl-team">${esc(t)}</span>${fmt(t)}</div>`).join("")}
-  </div></div>`;
-
-  return `<section class="highlights">
-    <div class="card hl"><div class="hl-label">Current streak</div>${curTile}</div>
-    <div class="card hl"><div class="hl-label">Last meeting</div>${lastTile}</div>
-    ${twoRows("Longest streak", t => {
-      const l = stats.longest[t];
-      return l ? `<b>${l.n}</b><span class="hl-note">${esc(shortYears(l.from, l.to))}</span>` : `<b>0</b><span class="hl-note"></span>`;
-    })}
-    ${twoRows("Biggest win", t => {
-      const b = stats.biggest[t];
-      return b ? `<b>${esc(b.score)}</b><span class="hl-note">${esc(b.season)}</span>` : `<b>—</b><span class="hl-note"></span>`;
-    })}
-  </section>`;
+  const cards = [
+    cur ? card("Current streak", `${abOf(cur.team)} ${cur.n}`, cur.n === 1 ? `${cur.team} won the last meeting` : `${cur.team} wins in a row`, cur.team)
+      : card("Current streak", "—", "Last meeting was a tie", null),
+    card("Last meeting", winnerFirstScore(last, lastWinner), `${lastWinner || "Tie"} · ${fmtDate(last.date)}`, lastWinner),
+  ];
+  for (const [i, t] of [team1, team2].entries()) {
+    const l = stats.longest[t];
+    cards.push(card(`Longest streak · ${ab[i]}`, l ? l.n : 0, l ? shortYears(l.from, l.to) : "No wins yet", t));
+  }
+  for (const [i, t] of [team1, team2].entries()) {
+    const b = stats.biggest[t];
+    cards.push(card(`Biggest win · ${ab[i]}`, b ? b.score : "—", b ? `${b.season}` : "No wins yet", t));
+  }
+  return `<section class="section">${capHtml("Series notes")}<div class="notes">${cards.join("")}</div></section>`;
 }
 
-// ---- Record by decade ----
+// ---- Wins by decade ----
 
-// Mirrored bars: team1's wins grow left from the decade label, team2's grow
-// right, on one shared scale. Ties are listed in the hover text.
-function decadesHtml(games, team1, team2, c1, c2) {
+// One column per decade: team1's wins rise above the decade label, team2's hang
+// below it, on one shared scale. Ties are printed under the decade.
+function decadesHtml(games, team1, team2) {
   const byDecade = new Map();
   for (const g of games) {
     const d = Math.floor(Number(g.season) / 10) * 10;
@@ -425,39 +485,108 @@ function decadesHtml(games, team1, team2, c1, c2) {
   if (byDecade.size < 2) return "";
   const decades = [...byDecade.keys()].sort((a, b) => a - b);
   const max = Math.max(...decades.map(d => Math.max(byDecade.get(d).w1, byDecade.get(d).w2)), 1);
-  const rows = decades.map(d => {
+  const anyTies = decades.some(d => byDecade.get(d).t);
+  const bar = n => (n ? `<i style="height:${Math.round((n / max) * 110)}px"></i>` : "");
+  const cols = decades.map(d => {
     const { w1, w2, t } = byDecade.get(d);
-    const tip = `${d}s: ${team1} ${w1}, ${team2} ${w2}${t ? `, ${t} tie${t === 1 ? "" : "s"}` : ""}`;
-    return `<div class="dec-row" data-tip="${esc(tip)}" tabindex="0" aria-label="${esc(tip)}">
-      <div class="dec-side l"><span class="dec-n${w1 ? "" : " zero"}">${w1}</span>${w1 ? `<i style="width:${(w1 / max) * 100}%;background:${c1}"></i>` : ""}</div>
-      <div class="dec-label">${d}s</div>
-      <div class="dec-side r">${w2 ? `<i style="width:${(w2 / max) * 100}%;background:${c2}"></i>` : ""}<span class="dec-n${w2 ? "" : " zero"}">${w2}</span></div>
+    const label = `${d}s: ${team1} ${w1}, ${team2} ${w2}${t ? `, ${plural(t, "tie")}` : ""}`;
+    return `<div class="dec-col" role="img" aria-label="${esc(label)}">
+      <div class="dec-up"><span class="dec-n">${w1 || ""}</span>${bar(w1)}</div>
+      <div class="dec-label">${d}s${t ? `<small>${t} T</small>` : ""}</div>
+      <div class="dec-down">${bar(w2)}<span class="dec-n">${w2 || ""}</span></div>
     </div>`;
   }).join("");
-  return `<section class="card decades">
-    <div class="games-head"><h2 class="section-label">Record by decade</h2></div>
-    <div class="dec-legend">
-      <span><i style="background:${c1}"></i>${esc(team1)} wins</span>
-      <span>${esc(team2)} wins<i style="background:${c2}"></i></span>
+  return `<section class="section">
+    <div class="section-head">
+      ${capHtml("Wins by decade")}
+      <div class="dec-legend">
+        <span><i style="background:var(--mark1)"></i>${esc(team1)}, above the line</span>
+        <span><i style="background:var(--mark2)"></i>${esc(team2)}, below</span>
+      </div>
     </div>
-    <div class="dec-chart">${rows}<div class="chart-tip" hidden></div></div>
+    <div class="dec-scroll"><div class="dec-chart${anyTies ? " has-ties" : ""}" style="min-width:${decades.length * 40}px">${cols}</div></div>
   </section>`;
 }
 
-// One tooltip per chart, positioned over the hovered (or focused) row.
-function initChartTips() {
-  const show = row => {
-    const chart = row.closest(".dec-chart");
-    const tip = chart.querySelector(".chart-tip");
-    tip.textContent = row.dataset.tip;
-    tip.hidden = false;
-    tip.style.top = `${row.offsetTop - tip.offsetHeight - 6}px`;
+// ---- Every meeting ----
+
+const BOX_COUNT = 6;
+
+// The newest six games (upcoming ones first) as score boxes, plus a button that
+// opens a table of every game.
+function gamesHtml(rows, team1, team2, playedCount) {
+  const ptsFor = (g, t) => (sameTeam(g.home, t) ? g.homePts : g.awayPts);
+  const badgesHtml = g => (g.badges || []).map(b => `<span class="pill${b.post ? " post" : ""}">${esc(b.text)}</span>`).join(" ");
+
+  const box = g => {
+    const line = (t, mark) => {
+      const won = !g.upcoming && g.winner && sameTeam(g.winner, t);
+      return `<div class="box-line${won ? " won" : ""}"><span>${esc(t)}</span><b>${g.upcoming ? "–" : esc(ptsFor(g, t) ?? "?")}</b></div>`;
+    };
+    const tags = badgesHtml(g);
+    return `<div class="box${g.upcoming ? " upcoming" : ""}">
+      <div class="box-head"><span>${g.upcoming ? "Upcoming" : "Final"} · ${esc(fmtDate(g.date))}</span><span class="box-site">${esc(g.site || "")}</span></div>
+      ${line(team1)}${line(team2)}
+      ${tags ? `<div class="box-tags">${tags}</div>` : ""}
+    </div>`;
   };
-  const hide = row => { row.closest(".dec-chart").querySelector(".chart-tip").hidden = true; };
-  document.addEventListener("mouseover", e => { const r = e.target.closest(".dec-row"); if (r) show(r); });
-  document.addEventListener("mouseout", e => { const r = e.target.closest(".dec-row"); if (r && !r.contains(e.relatedTarget)) hide(r); });
-  document.addEventListener("focusin", e => { const r = e.target.closest(".dec-row"); if (r) show(r); });
-  document.addEventListener("focusout", e => { const r = e.target.closest(".dec-row"); if (r) hide(r); });
+
+  const markOf = name => (sameTeam(name, team1) ? "var(--mark1)" : sameTeam(name, team2) ? "var(--mark2)" : "var(--line)");
+  const rowHtml = g => {
+    const homeWon = !g.upcoming && g.winner && sameTeam(g.winner, g.home);
+    const awayWon = !g.upcoming && g.winner && sameTeam(g.winner, g.away);
+    const score = g.upcoming ? "–"
+      : `${homeWon ? `<b>${esc(g.homePts)}</b>` : esc(g.homePts ?? "?")}–${awayWon ? `<b>${esc(g.awayPts)}</b>` : esc(g.awayPts ?? "?")}`;
+    const winnerCell = g.upcoming ? "Upcoming"
+      : g.winner ? `<span class="dot" style="background:${markOf(g.winner)}"></span>${esc(g.winner)}`
+      : `<span class="dot"></span>Tie`;
+    return `<tr${g.upcoming ? ' class="upcoming"' : ""}>
+      <td>${esc(fmtDate(g.date))}</td>
+      <td class="team${homeWon ? " won" : ""}">${esc(g.home)}</td>
+      <td class="team${awayWon ? " won" : ""}">${esc(g.away)}</td>
+      <td class="score">${score}</td>
+      <td>${winnerCell}</td>
+      <td>${badgesHtml(g)}</td>
+    </tr>`;
+  };
+
+  const upcomingCount = rows.length - playedCount;
+  const allLabel = `All ${plural(playedCount, "meeting")}${upcomingCount ? ` + ${upcomingCount} upcoming` : ""}`;
+  const more = rows.length > BOX_COUNT;
+  return `<section class="section">
+    ${capHtml("Every meeting")}
+    <div class="boxes">${rows.slice(0, BOX_COUNT).map(box).join("")}</div>
+    ${more ? `
+      <button type="button" class="btn slant" data-games="show" aria-expanded="false" aria-controls="full-games">${esc(allLabel)}</button>
+      <div class="full-games" id="full-games" hidden>
+        <div class="full-games-head">
+          <h3>${esc(allLabel)}</h3>
+          <button type="button" class="btn quiet slant" data-games="hide">Hide full list</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Home</th><th>Away</th><th class="num">Score</th><th>Winner</th><th>Note</th></tr></thead>
+            <tbody>${rows.map(rowHtml).join("")}</tbody>
+          </table>
+        </div>
+      </div>` : ""}
+  </section>`;
+}
+
+// Results are re-rendered on every compare, so listen at the document level.
+function initGamesToggle() {
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-games]");
+    if (!btn) return;
+    const section = btn.closest(".section");
+    const show = section.querySelector('[data-games="show"]');
+    const full = section.querySelector(".full-games");
+    const open = btn.dataset.games === "show";
+    full.hidden = !open;
+    show.hidden = open;
+    show.setAttribute("aria-expanded", String(open));
+    (open ? full.querySelector('[data-games="hide"]') : show).focus();
+  });
 }
 
 // ---- Team vs conference ----
@@ -571,7 +700,8 @@ async function mapLimit(items, limit, task) {
   return out;
 }
 
-const CONF_COLOR = "#8b93a1";
+// The conference side of the score bug: slate, with white text.
+const CONF_COLOR = "#5b6472";
 
 function renderConference({ team, conf, records, note }, index) {
   const m = teamMeta(index, team);
@@ -586,20 +716,17 @@ function renderConference({ team, conf, records, note }, index) {
   const logos = played.slice().sort((a, b) => b.games - a.games).slice(0, 4)
     .map(r => logoHtml(teamMeta(index, r.opponent), r.opponent, "md")).join("");
 
-  const board = `
-    <section class="card scoreboard" style="--c1:${c1};--c2:${CONF_COLOR}">
-      <div class="sb-team">${logoHtml(m, team, "lg")}<div class="sb-name">${esc(team)}</div></div>
-      <div class="sb-center">
-        <div class="sb-nums"><span class="${wins >= losses ? "" : "trail"}">${wins}</span><span class="dash">–</span><span class="${losses >= wins ? "" : "trail"}">${losses}</span></div>
-        <div class="sb-verdict">${esc(verdict)}${pct !== null ? ` · ${pct.toFixed(1)}%` : ""}</div>
-        ${ties ? `<span class="pill sb-ties">${ties} tie${ties === 1 ? "" : "s"}</span>` : ""}
-      </div>
-      <div class="sb-team"><div class="conf-logos">${logos}</div><div class="sb-name">vs ${esc(conf)}</div></div>
-      ${games ? `<div class="sb-bar" role="img" aria-label="${wins} wins, ${ties} ties, ${losses} losses">
-        <i class="b1" style="flex:${wins}"></i><i class="bt" style="flex:${ties}"></i><i class="b2" style="flex:${losses}"></i>
-      </div>` : ""}
-      <div class="sb-meta"><span>${games} game${games === 1 ? "" : "s"} vs ${played.length} of ${records.length} current members. ${esc(note)}</span><button id="copy-link" class="link-btn" type="button">Copy link</button></div>
-    </section>`;
+  const board = bugHtml({
+    left: { logo: logoHtml(m, team, "disc"), name: team, num: wins },
+    right: { logo: `<div class="conf-logos">${logos}</div>`, name: `vs ${conf}`, num: losses },
+    mid: ["Win %", pct === null ? "—" : `${pct.toFixed(0)}%`],
+    strip: [
+      verdict,
+      `${plural(games, "game")} vs ${played.length} of ${records.length} members`,
+      ties ? plural(ties, "tie") : null,
+    ],
+    summary: `${team} vs the ${conf}: ${wins} wins, ${losses} losses${ties ? `, ${plural(ties, "tie")}` : ""}`,
+  });
 
   const sorted = records.slice().sort((a, b) => b.games - a.games || a.opponent.localeCompare(b.opponent));
   const rowHtml = r => {
@@ -608,24 +735,28 @@ function renderConference({ team, conf, records, note }, index) {
     return `<tr${r.games ? "" : ' class="upcoming"'}>
       <td><a class="vs-link" href="${esc(matchupHref(team, r.opponent))}" data-t1="${esc(team)}" data-t2="${esc(r.opponent)}">${logoHtml(teamMeta(index, r.opponent), r.opponent, "sm")}<span>${esc(r.opponent)}</span></a></td>
       <td class="score">${r.games ? `<b>${rec}</b>` : "Never played"}</td>
-      <td>${p === null ? "—" : `<span class="pct"><span class="pct-bar"><i style="width:${p}%;background:${c1}"></i></span>${p.toFixed(0)}%</span>`}</td>
+      <td>${p === null ? "—" : `<span class="pct"><span class="pct-bar"><i style="width:${p}%"></i></span>${p.toFixed(0)}%</span>`}</td>
       <td>${r.games || "—"}</td>
       <td>${r.lastSeason ? `${esc(r.lastSeason)} <span class="pill">${esc(r.lastResult)}</span>` : "—"}</td>
     </tr>`;
   };
   const table = `
-    <section class="card games">
-      <div class="games-head"><h2 class="section-label">${esc(team)} vs each ${esc(conf)} team</h2></div>
+    <section class="section">
+      ${capHtml(`${team} vs each ${conf} team`)}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Opponent</th><th>Record</th><th>Win %</th><th>Games</th><th>Last met</th></tr></thead>
+          <thead><tr><th>Opponent</th><th class="num">Record</th><th>Win %</th><th>Games</th><th>Last met</th></tr></thead>
           <tbody>${sorted.map(rowHtml).join("")}</tbody>
         </table>
       </div>
       <p class="table-note">Records are against the conference's current members, including games from before they joined. Tap a team for the full head-to-head.</p>
     </section>`;
 
-  document.getElementById("result").innerHTML = board + table;
+  document.getElementById("result").innerHTML = `
+    <div class="matchup" style="${colorVars(c1, m.altColor, CONF_COLOR, null)}">
+      <div>${board}${note ? `<p class="bug-note">${esc(note)}</p>` : ""}</div>
+      ${table}
+    </div>`;
 }
 
 
@@ -693,7 +824,7 @@ function initRivalries(pairs, compare) {
   const chips = box.querySelector(".chips");
   for (const [a, b] of pairs) {
     const chip = document.createElement("a");
-    chip.className = "chip";
+    chip.className = "chip slant";
     chip.href = matchupHref(a, b);
     chip.textContent = `${a} vs ${b}`;
     chip.addEventListener("click", e => {
@@ -707,7 +838,11 @@ function initRivalries(pairs, compare) {
     chips.appendChild(chip);
   }
   const result = document.getElementById("result");
-  const sync = () => { box.hidden = result.children.length > 0; };
+  // The page heading also shrinks to screen-reader only while a result is showing.
+  const sync = () => {
+    box.hidden = result.children.length > 0;
+    document.body.classList.toggle("has-result", result.children.length > 0);
+  };
   new MutationObserver(sync).observe(result, { childList: true });
   sync();
 }
@@ -720,6 +855,6 @@ function initSwap(compare, getIndex) {
     const b = document.getElementById("team2");
     [a.value, b.value] = [b.value, a.value];
     refreshInputLogos(getIndex());
-    if (document.querySelector("#result .scoreboard")) compare();
+    if (document.querySelector("#result .bug")) compare();
   });
 }

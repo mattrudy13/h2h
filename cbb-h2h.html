@@ -6,53 +6,59 @@
 <title>College Basketball Head-to-Head</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-sport="cbb">
 
-<header class="topbar">
-  <div class="wrap">
-    <a class="wordmark" href="index.html">Head<span>-to-</span>Head</a>
-    <nav class="tabs" aria-label="Sport">
-      <a href="cfb-h2h.html">Football</a>
-      <a href="cbb-h2h.html" aria-current="page">Basketball</a>
-    </nav>
+<header class="site-head wrap">
+  <a class="brand" href="index.html"><span class="brand-tag slant">H2H</span><span class="brand-name">Head-to-Head</span></a>
+  <nav class="tabs" aria-label="Sport">
+    <a class="slant" href="cfb-h2h.html">Football</a>
+    <a class="slant" href="cbb-h2h.html" aria-current="page">Basketball</a>
+  </nav>
+  <div class="modes" role="group" aria-label="Compare">
+    <button type="button" class="mode-btn" data-mode="team" aria-pressed="true">Team vs Team</button>
+    <button type="button" class="mode-btn" data-mode="conf" aria-pressed="false">Team vs Conference</button>
   </div>
 </header>
 
 <main class="wrap">
   <section class="hero">
     <h1>College Basketball</h1>
-    <p>Pick two men's programs to see their all-time series.</p>
+    <p>Pick two men's programs to see their series since 1950.</p>
   </section>
 
-  <div class="modes" role="group" aria-label="Compare">
-    <button type="button" class="mode-btn" data-mode="team" aria-pressed="true">Team vs Team</button>
-    <button type="button" class="mode-btn" data-mode="conf" aria-pressed="false">Team vs Conference</button>
-  </div>
-
-  <div class="card picker">
-    <div class="input-wrap"><span class="input-logo"></span><input id="team1" list="teams" placeholder="Team 1 (e.g. Duke)" autocomplete="off" aria-label="Team 1"></div>
-    <button id="swap" class="swap" type="button" title="Swap teams" aria-label="Swap teams">&#8644;</button>
-    <div class="input-wrap"><span class="input-logo"></span><input id="team2" list="teams" placeholder="Team 2 (e.g. North Carolina)" autocomplete="off" aria-label="Team 2"></div>
-    <div id="conf-wrap" class="input-wrap" hidden><select id="conf" aria-label="Conference"><option value="">Pick a conference</option></select></div>
+  <div class="picker">
+    <div class="field input-wrap">
+      <label for="team1">Team 1</label>
+      <div class="input-box"><span class="input-logo"></span><input id="team1" list="teams" placeholder="e.g. Duke" autocomplete="off"></div>
+    </div>
+    <button id="swap" class="swap" type="button" aria-label="Swap teams">&#8644;</button>
+    <div class="field input-wrap">
+      <label for="team2">Team 2</label>
+      <div class="input-box"><span class="input-logo"></span><input id="team2" list="teams" placeholder="e.g. North Carolina" autocomplete="off"></div>
+    </div>
+    <div id="conf-wrap" class="field input-wrap" hidden>
+      <label for="conf">Conference</label>
+      <div class="input-box"><select id="conf"><option value="">Pick a conference</option></select></div>
+    </div>
     <datalist id="teams"></datalist>
-    <button id="go">Compare</button>
+    <button id="go" class="slant" type="button">Compare</button>
   </div>
 
   <div id="status" role="status"></div>
   <div id="suggest"></div>
 
   <section id="rivalries" class="rivalries">
-    <h2>Classic rivalries</h2>
+    <h2 class="cap"><span>Classic rivalries</span></h2>
     <div class="chips"></div>
   </section>
 
   <div id="result"></div>
 </main>
 
-<footer class="wrap">Data via <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a></footer>
+<footer class="wrap">Data via <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a>. Game data starts with the 1950 season.</footer>
 
 <script src="proxy-config.js"></script>
 <script src="common.js"></script>
@@ -178,13 +184,6 @@ async function compare() {
       else ties++;
     }
 
-    const upcomingNote = upcoming.length ? ` · ${upcoming.length} upcoming` : "";
-    let metaLine;
-    if (played.length) {
-      metaLine = `${gamesSummary(played.length, played.map(g => g.season))}${upcomingNote}.`;
-    } else {
-      metaLine = `No games played yet${upcomingNote}.`;
-    }
     setStatus("");
 
     const rows = [...games]
@@ -197,6 +196,7 @@ async function compare() {
         return {
           date: g.startDate,
           season: g.season,
+          site: g.venue,
           badges,
           home: g.homeTeam,
           away: g.awayTeam,
@@ -213,7 +213,7 @@ async function compare() {
       wins1: team1Wins,
       wins2: team2Wins,
       ties,
-      metaLine: `${metaLine} ${note}`.trim(),
+      note,
       rows,
     }, teamIndex);
   } catch (err) {
@@ -229,7 +229,7 @@ initSwap(compare, () => teamIndex);
 initCopyLink();
 initInputLogos(() => teamIndex);
 initModes(compare);
-initChartTips();
+initGamesToggle();
 initRivalries([
   ["Duke", "North Carolina"],
   ["Kansas", "Kentucky"],
