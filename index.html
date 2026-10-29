@@ -9,37 +9,45 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-sport="cfb">
 
 <header class="site-head wrap">
   <a class="brand" href="index.html"><span class="brand-tag slant">H2H</span><span class="brand-name">Head-to-Head</span></a>
-  <nav class="tabs" aria-label="Sport">
-    <a class="slant" href="cfb-h2h.html">Football</a>
-    <a class="slant" href="cbb-h2h.html">Basketball</a>
-  </nav>
 </header>
 
 <main class="wrap">
-  <section class="landing-hero">
+  <section class="home-search">
     <h1>Settle the rivalry</h1>
-    <p>All-time series records between any two college programs, game by game.</p>
+    <div class="sport-switch" role="group" aria-label="Sport">
+      <button type="button" class="slant" data-pick="cfb" aria-pressed="true">Football</button>
+      <button type="button" class="slant" data-pick="cbb" aria-pressed="false">Basketball</button>
+    </div>
+    <div class="picker">
+      <div class="field input-wrap">
+        <label for="team1">Team 1</label>
+        <div class="input-box"><span class="input-logo"></span><input id="team1" list="teams" placeholder="e.g. Michigan" autocomplete="off"></div>
+      </div>
+      <button id="swap" class="swap" type="button" aria-label="Swap teams">&#8644;</button>
+      <div class="field input-wrap">
+        <label for="team2">Team 2</label>
+        <div class="input-box"><span class="input-logo"></span><input id="team2" list="teams" placeholder="e.g. Ohio State" autocomplete="off"></div>
+      </div>
+      <datalist id="teams"></datalist>
+      <button id="go" class="slant" type="button">Compare</button>
+    </div>
+    <div id="status" role="status"></div>
+    <div id="suggest"></div>
+    <a id="conf-link" class="conf-link" href="cfb-h2h.html?mode=conf">Team vs Conference</a>
   </section>
 
-  <div class="sports">
-    <section class="sport-col" data-sport="cfb">
-      <h2 class="cap"><span>Football</span></h2>
-      <p>Every FBS series back to the 1800s, including bowl games.</p>
-      <div class="rivs"></div>
-      <a class="sport-cta" href="cfb-h2h.html">Open football &rarr;</a>
-    </section>
-
-    <section class="sport-col" data-sport="cbb">
-      <h2 class="cap"><span>Basketball</span></h2>
-      <p>Men's basketball since 1950, plus upcoming games.</p>
-      <div class="rivs"></div>
-      <a class="sport-cta" href="cbb-h2h.html">Open basketball &rarr;</a>
-    </section>
-  </div>
+  <section id="recents" class="recents">
+    <div class="section-head">
+      <h2 class="cap"><span>Recent</span></h2>
+      <button type="button" class="link-btn recent-clear">Clear</button>
+    </div>
+    <div class="recent-list"></div>
+    <p class="recent-empty">Matchups you look up show up here, so you can reopen them in one tap. They're saved on this device only.</p>
+  </section>
 </main>
 
 <footer class="wrap">Data via <a href="https://collegefootballdata.com" target="_blank" rel="noopener">CollegeFootballData.com</a> and <a href="https://collegebasketballdata.com" target="_blank" rel="noopener">CollegeBasketballData.com</a></footer>
@@ -47,70 +55,70 @@
 <script src="proxy-config.js"></script>
 <script src="common.js"></script>
 <script>
-// Colors and abbreviations come from each API's team list. They're written out
-// here so the landing page doesn't have to download two full team lists.
-const RIVALRIES = {
-  cfb: [
-    [["Michigan", "MICH", "#00274c", "#ffcb05"], ["Ohio State", "OSU", "#ba0c2f", "#a7b1b7"]],
-    [["Alabama", "ALA", "#9e1b32", "#ffffff"], ["Auburn", "AUB", "#0c2340", "#f26522"]],
-    [["Army", "ARMY", "#000000", "#d3bc8d"], ["Navy", "NAVY", "#00225b", "#b5a67c"]],
-  ],
-  cbb: [
-    [["Duke", "DUKE", "#013088", "#ffffff"], ["North Carolina", "UNC", "#7bafd4", "#13294b"]],
-    [["Kansas", "KU", "#0051ba", "#e8000d"], ["Kentucky", "UK", "#0033a0", "#ffffff"]],
-    [["Indiana", "IU", "#990000", "#edebeb"], ["Purdue", "PUR", "#000000", "#cfb991"]],
-  ],
-};
+// The home page searches one sport at a time. Compare resolves the names when
+// that sport's team list has loaded (otherwise the sport page does it) and
+// opens the matchup there.
+const SPORT_KEY = "h2h-sport";
+const PLACEHOLDERS = { cfb: ["e.g. Michigan", "e.g. Ohio State"], cbb: ["e.g. Duke", "e.g. North Carolina"] };
 
-const API = (window.H2H_PROXY || "").replace(/\/$/, "");
+// One request per sport per visit, started when that sport is picked.
+const indexes = {};
+let sport = "cfb";
+let teamIndex = null;
 
-function rivalryCard(sport, [t1, ab1, col1, alt1], [t2, ab2, col2, alt2]) {
-  // Same color rule as the matchup page, so a rivalry looks the same on both.
-  const [c1, c2] = matchupColors({ color: col1 }, { color: col2, altColor: alt2 }, t2);
-  const a = document.createElement("a");
-  a.className = "riv";
-  a.href = `${sport}-h2h.html${matchupHref(t1, t2)}`;
-  a.setAttribute("aria-label", `${t1} vs ${t2}`);
-  a.style.cssText = `--c1:${c1};--c2:${c2};--f1:${textOn(c1)};--f2:${textOn(c2)}`;
-  a.innerHTML = `
-    <div class="riv-row" aria-hidden="true">
-      <div class="riv-team t1"><span class="riv-abbr">${esc(ab1)}</span><span class="riv-num">–</span></div>
-      <div class="riv-mid">VS</div>
-      <div class="riv-team t2"><span class="riv-num">–</span><span class="riv-abbr">${esc(ab2)}</span></div>
-    </div>
-    <div class="riv-meta"><span class="riv-line">${esc(t1)} vs ${esc(t2)}</span><span class="riv-open">OPEN &rarr;</span></div>`;
-  return a;
+async function pickSport(next) {
+  sport = next;
+  document.body.dataset.sport = next;
+  for (const b of document.querySelectorAll("[data-pick]")) b.setAttribute("aria-pressed", String(b.dataset.pick === next));
+  document.getElementById("team1").placeholder = PLACEHOLDERS[next][0];
+  document.getElementById("team2").placeholder = PLACEHOLDERS[next][1];
+  document.getElementById("conf-link").href = `${next}-h2h.html?mode=conf`;
+  try { localStorage.setItem(SPORT_KEY, next); } catch { /* storage blocked */ }
+  clearSuggestions();
+  setStatus("");
+  teamIndex = null;
+  refreshInputLogos(null);
+
+  indexes[next] ??= loadTeamIndex(next).catch(() => null);
+  const index = await indexes[next];
+  if (sport !== next || !index) return;
+  teamIndex = index;
+  fillTeamList(index);
+  refreshInputLogos(index);
 }
 
-// Fills in a card from the Worker's /record route. If it fails, the card
-// keeps its dashes and still links to the matchup.
-async function loadRecord(sport, card, t1, t2) {
-  try {
-    const res = await fetch(`${API}/${sport}/record?team1=${encodeURIComponent(t1)}&team2=${encodeURIComponent(t2)}`);
-    if (!res.ok) return;
-    const r = await res.json();
-    const [n1, n2] = card.querySelectorAll(".riv-num");
-    n1.textContent = r.wins1;
-    n2.textContent = r.wins2;
-    if (r.ties) card.querySelector(".riv-mid").textContent = `${r.ties} T`;
-    const lead = r.wins1 === r.wins2 ? "Series tied" : `${r.wins1 > r.wins2 ? r.team1 : r.team2} leads`;
-    const bits = [plural(r.games, "meeting"), r.next ? `next ${fmtDate(r.next)}` : null].filter(Boolean);
-    const line = card.querySelector(".riv-line");
-    line.innerHTML = `<b>${esc(lead)}</b> · ${esc(bits.join(" · "))}`;
-    card.setAttribute("aria-label",
-      `${r.team1} ${r.wins1}, ${r.team2} ${r.wins2}${r.ties ? `, ${plural(r.ties, "tie")}` : ""}. ${lead}, ${bits.join(", ")}`);
-  } catch {
-    // Network error: leave the placeholder card.
+function go() {
+  const raw1 = document.getElementById("team1").value.trim();
+  const raw2 = document.getElementById("team2").value.trim();
+  clearSuggestions();
+  if (!raw1 || !raw2) {
+    setStatus("Enter both team names.", true);
+    return;
   }
+  const picked = resolvePair(raw1, raw2, teamIndex, go);
+  if (!picked) return;
+  if (sameTeam(picked.t1, picked.t2)) {
+    setStatus("Pick two different teams.", true);
+    return;
+  }
+  location.href = `${sport}-h2h.html${matchupHref(picked.t1, picked.t2)}`;
 }
 
-for (const [sport, pairs] of Object.entries(RIVALRIES)) {
-  const box = document.querySelector(`.sport-col[data-sport="${sport}"] .rivs`);
-  for (const [a, b] of pairs) {
-    const card = rivalryCard(sport, a, b);
-    box.appendChild(card);
-    if (API) loadRecord(sport, card, a[0], b[0]);
-  }
+for (const b of document.querySelectorAll("[data-pick]")) b.addEventListener("click", () => pickSport(b.dataset.pick));
+document.getElementById("go").addEventListener("click", go);
+for (const id of ["team1", "team2"]) {
+  document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+}
+initSwap(go, () => teamIndex);
+initInputLogos(() => teamIndex);
+initRecents();
+
+let saved = null;
+try { saved = localStorage.getItem(SPORT_KEY); } catch { /* storage blocked */ }
+if (!window.H2H_PROXY) {
+  setStatus("No proxy URL set — set window.H2H_PROXY in proxy-config.js.", true);
+} else {
+  pickSport(saved === "cbb" ? "cbb" : "cfb");
 }
 </script>
 

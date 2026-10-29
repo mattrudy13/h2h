@@ -50,9 +50,12 @@
   <div id="status" role="status"></div>
   <div id="suggest"></div>
 
-  <section id="rivalries" class="rivalries">
-    <h2 class="cap"><span>Classic rivalries</span></h2>
-    <div class="chips"></div>
+  <section id="recents" class="recents" hidden>
+    <div class="section-head">
+      <h2 class="cap"><span>Recent</span></h2>
+      <button type="button" class="link-btn recent-clear">Clear</button>
+    </div>
+    <div class="recent-list"></div>
   </section>
 
   <div id="result"></div>
@@ -79,18 +82,8 @@ async function apiFetch(path) {
 
 async function loadTeams() {
   try {
-    const teams = await apiFetch("/teams/fbs");
-    teamIndex = buildTeamIndex(teams, ["abbreviation", "alternateNames"],
-      t => ({
-        color: t.color, altColor: t.alternateColor, abbr: t.abbreviation, logos: t.logos,
-        conference: t.conference === "FBS Independents" ? null : t.conference,
-      }));
-    const datalist = document.getElementById("teams");
-    datalist.innerHTML = teams
-      .map(t => t.school)
-      .sort()
-      .map(name => `<option value="${esc(name)}">`)
-      .join("");
+    teamIndex = await loadTeamIndex("cfb");
+    fillTeamList(teamIndex);
     refreshInputLogos(teamIndex);
     fillConferences(teamIndex);
   } catch (err) {
@@ -205,13 +198,16 @@ initCopyLink();
 initInputLogos(() => teamIndex);
 initModes(compare);
 initGamesToggle();
-initRivalries([
-  ["Michigan", "Ohio State"],
-  ["Alabama", "Auburn"],
-  ["Army", "Navy"],
-  ["Texas", "Oklahoma"],
-  ["USC", "Notre Dame"],
-], compare);
+initRecents({
+  sport: "cfb",
+  max: 4,
+  onPick: (a, b) => {
+    setMode("team");
+    document.getElementById("team1").value = a;
+    document.getElementById("team2").value = b;
+    compare();
+  },
+});
 document.getElementById("team2").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
 document.getElementById("team1").addEventListener("keydown", e => { if (e.key === "Enter") compare(); });
 

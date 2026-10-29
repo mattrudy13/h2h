@@ -1,6 +1,7 @@
 /* Shared styles for index.html, cfb-h2h.html and cbb-h2h.html.
    "Broadcast graphic" look: slanted TV score-bug blocks, Chakra Petch + Manrope.
-   Each page sets <body data-sport="cfb|cbb"> for its accent (amber / teal). */
+   data-sport="cfb|cbb" sets the accent (amber / teal): on <body> for the page,
+   and on each recent-lookup row for its own sport. */
 
 :root {
   color-scheme: light dark;
@@ -24,6 +25,7 @@
   --body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --slant: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
 }
+[data-sport="cfb"] { --accent: #f2a900; --accent-soft: #fdeec2; }
 [data-sport="cbb"] { --accent: #2dd4bf; --accent-soft: #ccf5ef; }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +44,7 @@
     --danger: #ff8a80;
     --accent-soft: #3a2f10;
   }
+  [data-sport="cfb"] { --accent-soft: #3a2f10; }
   [data-sport="cbb"] { --accent-soft: #0f3a35; }
 }
 
@@ -159,7 +162,7 @@ button.swap:hover { border-color: var(--fg); }
 }
 #go:hover:not(:disabled) { filter: brightness(1.06); }
 
-/* ---- Status, suggestions, quick picks ---- */
+/* ---- Status and suggestions ---- */
 #status { margin: -18px 0 0; color: var(--muted); }
 #status:empty { display: none; }
 #status.error { color: var(--danger); font-weight: 600; }
@@ -177,8 +180,45 @@ button.swap:hover { border-color: var(--fg); }
   border: 0;
 }
 .chip:hover { background: var(--accent); color: var(--accent-fg); }
-.rivalries { display: flex; flex-direction: column; gap: 14px; }
-.rivalries .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---- Recent lookups: a sport band over two team blocks ---- */
+.recents { display: flex; flex-direction: column; gap: 14px; }
+.recent-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.recent-list:empty { display: none; }
+.recent { display: flex; flex-direction: column; min-width: 0; color: var(--fg); text-decoration: none; background: var(--panel); border: 1px solid var(--line); }
+.recent:hover { border-color: var(--fg); }
+.recent-band {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 10px;
+  font: 700 11px var(--display);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.recent-lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-row { display: flex; align-items: stretch; height: 50px; }
+.recent-team { flex: 0 0 84px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.recent-team.t1 { background: var(--c1); color: var(--f1); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.recent-team.t2 { background: var(--c2); color: var(--f2); clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%); }
+.recent-team b { font: 700 20px var(--display); font-variant-numeric: tabular-nums; }
+.recent-vs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  text-align: center;
+  font: 700 15px var(--display);
+  letter-spacing: .05em;
+  overflow-wrap: anywhere;
+}
+.recent .logo.disc { width: 26px; height: 26px; padding: 3px; }
+.recent .logo.disc .initials { font-size: 9px; }
+.recent-empty { margin: 0; padding: 14px; font-size: 15px; color: var(--muted); border: 1px dashed var(--line); }
 
 #result { display: flex; flex-direction: column; gap: 34px; }
 #result:empty { display: none; }
@@ -322,33 +362,38 @@ button.swap:hover { border-color: var(--fg); }
 }
 .pill.post { background: var(--accent-soft); }
 
-/* ---- Series notes: six cards, three across ---- */
+/* ---- Series notes: six cards, three across, labels on a team-color bar ----
+   --nc/--nf are the team's block color and text color (unset for a tie). */
 .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.note {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  padding: 16px 18px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-top: 5px solid var(--mark, var(--line));
+.note { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 1px solid var(--line); }
+.note-label {
+  padding: 7px 26px 7px 16px;
+  font: 700 12px var(--display);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  background: var(--nc, var(--panel-2));
+  color: var(--nf, var(--fg));
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
 }
-.note-label { font: 700 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.note-value { font: 700 40px / 1.05 var(--display); font-variant-numeric: tabular-nums; }
-.note-sub { font-size: 14px; color: var(--muted); }
+@media (prefers-color-scheme: dark) {
+  /* A navy bar barely shows on the dark card, so it gets a top edge in the lighter mark color. */
+  .note-label { box-shadow: inset 0 3px 0 var(--nm, transparent); }
+}
+.note-value { padding: 10px 18px 0; font: 700 40px / 1.05 var(--display); font-variant-numeric: tabular-nums; }
+.note-sub { padding: 2px 18px 14px; font-size: 14px; color: var(--muted); }
 
 /* ---- Wins by decade: team 1 above the line, team 2 below ---- */
 .dec-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; font-weight: 700; }
-.dec-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dec-legend > span { display: inline-flex; align-items: center; gap: 6px; }
 .dec-legend i { width: 12px; height: 12px; }
 .dec-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.dec-chart { display: flex; gap: 8px; }
+/* Bars carry their length as --v (0–1 of the busiest decade); --n is the decade count. */
+.dec-chart { display: flex; gap: 8px; min-width: calc(var(--n) * 40px); }
 .dec-col { flex: 1; min-width: 34px; display: flex; flex-direction: column; }
 .dec-up, .dec-down { height: 140px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .dec-up { justify-content: flex-end; }
 .dec-down { justify-content: flex-start; }
-.dec-up i, .dec-down i { display: block; width: 70%; }
+.dec-up i, .dec-down i { display: block; flex: none; width: 70%; height: calc(var(--v) * 110px); }
 .dec-up i { background: var(--mark1); }
 .dec-down i { background: var(--mark2); }
 .dec-n { font: 700 13px var(--display); }
@@ -366,28 +411,36 @@ button.swap:hover { border-color: var(--fg); }
 .dec-chart.has-ties .dec-label { height: 34px; }
 .dec-label small { display: block; font-size: 10px; opacity: .8; }
 
-/* ---- Every meeting: recent games as score boxes, then the full table ---- */
-.boxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.box { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 1px solid var(--line); }
-.box-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 12px;
-  font: 700 12px var(--display);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  background: var(--panel-2);
+/* ---- Every meeting: recent games as winner-colored strips, then the full table ----
+   Two columns filled top to bottom (--rows is half the strip count, rounded up). */
+.gstrips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), auto);
+  grid-auto-flow: column;
+  gap: 6px 12px;
 }
-.box.upcoming .box-head { background: var(--accent-soft); }
-.box-site { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.box-line { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-left: 6px solid var(--mark1); }
-.box-line + .box-line { border-top: 1px solid var(--line-soft); border-left-color: var(--mark2); }
-.box-line span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.box-line b { font: 700 24px var(--display); font-variant-numeric: tabular-nums; color: var(--loser); }
-.box-line.won span { font-weight: 800; }
-.box-line.won b { color: var(--fg); }
-.box-tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px 8px 18px; }
+.gstrip { display: flex; align-items: stretch; min-width: 0; min-height: 60px; background: var(--panel-2); color: var(--fg); }
+.gstrip.t1 { background: var(--c1); color: var(--f1); }
+.gstrip.t2 { background: var(--c2); color: var(--f2); }
+.gstrip.upcoming { background: var(--accent-soft); }
+.gstrip-year {
+  flex: 0 0 66px;
+  display: grid;
+  place-items: center;
+  font: 700 18px var(--display);
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, .28);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+.gstrip.tie .gstrip-year, .gstrip.upcoming .gstrip-year { background: rgba(127, 127, 127, .2); }
+.gstrip-main { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 8px 12px; }
+.gstrip-main b { font: 700 19px / 1.15 var(--display); letter-spacing: .03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.gstrip-main small { font-size: 12px; opacity: .88; }
+.gstrip .pill, .gstrip .pill.post { margin-left: 2px; padding: 0 6px; background: rgba(255, 255, 255, .22); color: inherit; }
+.gstrip.tie .pill, .gstrip.upcoming .pill { background: var(--panel); }
+.gstrip .logo.disc { align-self: center; margin-right: 12px; width: 38px; height: 38px; padding: 5px; }
+.gstrip .logo.disc .initials { font-size: 12px; }
 .btn {
   align-self: center;
   min-height: 46px;
@@ -457,86 +510,115 @@ footer.wrap { margin-top: 48px; padding-top: 12px; padding-bottom: 40px; font-si
 footer.wrap::before { content: ""; display: block; height: 3px; margin-bottom: 12px; background: var(--rule); }
 footer a { color: var(--muted); }
 
-/* ---- Landing page ---- */
-.landing-hero h1 { margin: 0 0 10px; font: 700 clamp(40px, 8vw, 64px) / 1 var(--display); text-transform: uppercase; letter-spacing: .01em; }
-.landing-hero p { margin: 0; max-width: 640px; font-size: 19px; color: var(--muted); }
-.sports { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 40px; }
-.sport-col { display: flex; flex-direction: column; gap: 14px; }
-.sport-col > p { margin: 0; color: var(--muted); }
-.rivs { display: flex; flex-direction: column; gap: 14px; }
-.sport-col[data-sport="cfb"] { --accent: #f2a900; }
-.sport-col[data-sport="cbb"] { --accent: #2dd4bf; }
-.riv { display: flex; flex-direction: column; color: var(--fg); text-decoration: none; background: var(--panel); border: 1px solid var(--line); }
-.riv:hover { border-color: var(--fg); }
-.riv-row { display: flex; align-items: stretch; min-height: 64px; }
-.riv-team { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
-.riv-team.t1 { padding: 0 34px 0 16px; background: var(--c1); color: var(--f1); clip-path: polygon(0 0, 100% 0, calc(100% - 22px) 100%, 0 100%); }
-.riv-team.t2 { padding: 0 16px 0 34px; background: var(--c2); color: var(--f2); clip-path: polygon(22px 0, 100% 0, 100% 100%, 0 100%); }
-.riv-abbr { flex: 1; font: 700 20px var(--display); letter-spacing: .04em; }
-.riv-team.t2 .riv-abbr { text-align: right; }
-.riv-num { font: 700 36px / 1 var(--display); font-variant-numeric: tabular-nums; }
-.riv-mid {
-  flex: 0 0 76px;
-  margin: 0 -20px;
-  z-index: 1;
+/* ---- Home page: the search on an accent panel (amber or teal by sport) ---- */
+.home-search {
+  margin: -10px -24px 0;
+  padding: 30px 24px 56px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font: 700 13px var(--display);
-  letter-spacing: .08em;
-  background: var(--bar);
-  color: var(--bar-fg);
-  clip-path: polygon(22px 0, 100% 0, calc(100% - 22px) 100%, 0 100%);
-}
-.riv-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; padding: 10px 10px 10px 14px; font-size: 15px; }
-.riv-open { margin-left: auto; font: 700 13px var(--display); letter-spacing: .1em; padding: 7px 18px; background: var(--accent); color: var(--accent-fg); clip-path: var(--slant); }
-.sport-cta {
-  align-self: flex-start;
-  margin-top: 6px;
-  padding: 20px 44px;
-  font: 700 19px var(--display);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  text-decoration: none;
+  flex-direction: column;
+  gap: 16px;
   background: var(--accent);
   color: var(--accent-fg);
-  clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 28px), 0 100%);
 }
-.sport-cta:focus-visible { clip-path: none; }
+.home-search h1 { margin: 0; font: 700 clamp(38px, 7vw, 64px) / 1 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+.sport-switch { display: flex; gap: 4px; }
+.sport-switch button {
+  padding: 11px 22px;
+  font: 700 14px var(--display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #161b26;
+  background: rgba(255, 255, 255, .55);
+  border: 0;
+}
+.sport-switch button[aria-pressed="true"] { background: #161b26; color: #ffffff; }
+.home-search .field label { color: inherit; }
+.home-search .input-box input { border-color: transparent; }
+.home-search .input-box input:focus { border-color: #161b26; }
+.home-search button.swap { border-color: transparent; }
+/* Compare can't be accent-on-accent here. */
+.home-search #go { background: #161b26; color: #ffffff; }
+.home-search #status { margin: 0; color: inherit; font-weight: 700; }
+.home-search #suggest { margin: 0; }
+.conf-link { align-self: flex-start; color: inherit; font-size: 14px; font-weight: 800; text-underline-offset: 3px; }
 
 /* ---- Narrower screens ---- */
 @media (max-width: 1100px) {
-  .logo.disc { width: 64px; height: 64px; padding: 9px; }
-  .logo.disc .initials { font-size: 20px; }
+  .bug .logo.disc { width: 64px; height: 64px; padding: 9px; }
+  .bug .logo.disc .initials { font-size: 20px; }
   .bug-team { gap: 14px; }
   .bug-team.t1 { padding: 18px 46px 18px 20px; }
   .bug-team.t2 { padding: 18px 20px 18px 46px; }
   .bug-mid { flex-basis: 130px; margin: 0 -26px; }
 }
 @media (max-width: 900px) {
-  .notes, .boxes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Between the phone layout and full width there's no room for the logo discs in the bug. */
 @media (min-width: 761px) and (max-width: 900px) {
   .bug .logo.disc { display: none; }
 }
 @media (max-width: 760px) {
-  /* The bug stacks: team 1, a thin middle row, team 2. Slants would clip stacked blocks. */
-  .bug-row { flex-direction: column; min-height: 0; }
-  .bug-team.t1, .bug-team.t2 { clip-path: none; padding: 14px 16px; gap: 14px; }
-  .bug-team.t2 { flex-direction: row-reverse; }
-  .bug-team.t2 .bug-name { text-align: left; }
-  .bug-mid { flex: none; margin: 0; flex-direction: row; gap: 10px; padding: 6px; clip-path: none; }
-  .bug-mid b { font-size: 18px; }
-  .logo.disc { width: 56px; height: 56px; padding: 8px; }
-  .logo.disc .initials { font-size: 17px; }
-  .bug-num { font-size: 56px; }
-  .bug-strip { padding: 10px 14px; gap: 6px 14px; font-size: 13px; }
+  /* The bug becomes one edge-to-edge band split on a diagonal: team 1's color
+     fills it, team 2's is laid over the right side by ::before, and ::after is
+     the dark seam. Each team block is then just a transparent column of logo,
+     name and score, so long names grow the band instead of overflowing it. */
+  .bug { margin: 0 -24px; }
+  .bug-row { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 236px; background: var(--c1); }
+  .bug-row::before, .bug-row::after { content: ""; position: absolute; inset: 0; }
+  .bug-row::before { background: var(--c2); clip-path: polygon(64% 0, 100% 0, 100% 100%, 36% 100%); }
+  .bug-row::after { background: #10141b; clip-path: polygon(61% 0, 67% 0, 39% 100%, 33% 100%); }
+  .bug-team.t1, .bug-team.t2 {
+    position: relative;
+    z-index: 1;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px 16px 4px;
+    background: none;
+    clip-path: none;
+    box-shadow: none;
+  }
+  .bug-team.t1 { align-items: flex-start; }
+  .bug-team.t2 { align-items: flex-end; }
+  /* Team 2's markup runs score, name, logo (for the desktop mirror); stack it logo first. */
+  .bug-team.t2 > .logo, .bug-team.t2 > .conf-logos { order: -2; }
+  .bug-team.t2 .bug-name { order: -1; }
+  /* Narrow enough to stay on their own side of the diagonal. */
+  .bug-name { flex: none; max-width: 90%; font-size: clamp(14px, 4.3vw, 17px); letter-spacing: .03em; }
+  .bug-num { margin-top: auto; font-size: 84px; }
+  .bug-num.long { font-size: 58px; }
+  /* The tag sits between the two logos, the one row names never reach. */
+  .bug-mid {
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    top: 47px;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    flex-direction: row;
+    gap: 6px;
+    padding: 5px 16px;
+    white-space: nowrap;
+    background: var(--accent);
+    color: var(--accent-fg);
+    clip-path: var(--slant);
+  }
+  .bug-mid small, .bug-mid b { font: 700 13px var(--display); letter-spacing: .08em; color: inherit; }
+  .bug .logo.disc { width: 58px; height: 58px; padding: 8px; }
+  .bug .logo.disc .initials { font-size: 18px; }
+  .bug-strip { padding: 10px 16px; gap: 6px 14px; font-size: 13px; }
   .bug-strip .sep { display: none; }
   .bug-strip .link-btn { margin-left: 0; }
-  .skel-row { height: 220px; flex-direction: column; }
-  .skel-row .skel:first-child, .skel-row .skel:last-child { clip-path: none; margin: 0; }
-  .skel-row .skel:last-child { margin-top: 6px; }
+  .skeleton { margin: 0 -24px; }
+  .skel-row { position: relative; height: 236px; }
+  .skel-row .skel { position: absolute; inset: 0; margin: 0; }
+  .skel-row .skel:first-child { clip-path: polygon(0 0, 61% 0, 33% 100%, 0 100%); }
+  .skel-row .skel:last-child { margin: 0; clip-path: polygon(67% 0, 100% 0, 100% 100%, 39% 100%); }
+  .skel.strip { margin-top: 0; }
+}
+@media (prefers-color-scheme: dark) and (max-width: 760px) {
+  .bug-mid small { color: inherit; }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
@@ -550,23 +632,41 @@ footer a { color: var(--muted); }
   #go { flex-basis: 100%; }
   #status { margin-top: -12px; }
   #suggest { margin-top: -16px; }
-
+  .bug, .skeleton { margin: 0 -16px; }
+  .home-search { margin: -8px -16px 0; padding: 24px 16px 48px; gap: 14px; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), 0 100%); }
+  /* Swap and Compare share a row under both fields, so recents start higher up. */
+  .home-search button.swap { order: 1; margin: 0; }
+  .home-search #go { order: 2; flex: 1 1 0; min-width: 0; }
 
   .notes { gap: 8px; }
-  .note { padding: 12px; }
-  .note-value { font-size: 28px; }
-  .note-sub { font-size: 13px; }
-  .boxes { grid-template-columns: minmax(0, 1fr); }
-  .box-head { flex-direction: column; gap: 0; }
-  .box-site { white-space: normal; }
-  .riv-num { font-size: 30px; }
-  .riv-abbr { font-size: 17px; }
-  .sport-cta { align-self: stretch; text-align: center; }
+  .note-label { padding: 6px 20px 6px 10px; font-size: 11px; letter-spacing: .08em; }
+  .note-value { padding: 8px 10px 0; font-size: 28px; }
+  .note-sub { padding: 2px 10px 10px; font-size: 13px; }
+
+  /* Wins by decade turns sideways: one row per decade, team 1's bar growing
+     left from the decade label, team 2's growing right. */
+  .dec-legend .dec-where { display: none; }
+  .dec-legend { width: 100%; justify-content: space-between; }
+  .dec-chart { flex-direction: column; gap: 4px; min-width: 0; }
+  .dec-col { flex-direction: row; align-items: center; min-width: 0; }
+  .dec-up, .dec-down { flex: 1; min-width: 0; height: 22px; flex-direction: row; align-items: center; gap: 6px; }
+  .dec-up { justify-content: flex-end; }
+  .dec-up i, .dec-down i { width: calc(var(--v) * (100% - 28px)); height: 18px; }
+  .dec-label, .dec-chart.has-ties .dec-label { flex: 0 0 76px; height: 24px; flex-direction: row; align-items: center; justify-content: center; gap: 5px; }
+  .dec-label small { display: inline; }
+
+  .gstrips { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; gap: 4px; }
+  .gstrip-year { flex-basis: 62px; }
+  .recent-list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   table { font-size: 14px; }
 }
 @media (max-width: 380px) {
-  .logo.disc { width: 44px; height: 44px; padding: 6px; }
-  .logo.disc .initials { font-size: 14px; }
-  .bug-team.t1, .bug-team.t2 { gap: 10px; }
-  .bug-num { font-size: 44px; }
+  .bug .logo.disc { width: 46px; height: 46px; padding: 6px; }
+  .bug .logo.disc .initials { font-size: 14px; }
+  .bug-mid { top: 41px; }
+  .bug-name { letter-spacing: .01em; }
+  .bug-num { font-size: 64px; }
+  .bug-num.long { font-size: 46px; }
+  .recent-team { flex-basis: 74px; }
+  .gstrip .logo.disc { display: none; }
 }

@@ -1,8 +1,8 @@
-// Shared by cfb-h2h.html and cbb-h2h.html: team-name resolution (aliases and
-// typos), team colors and logos, the score bug, series notes, decade chart and
-// game list, shareable ?t1=&t2= links, the swap button and the loading skeleton.
-// Pages provide the elements #team1, #team2, #swap, #status, #suggest,
-// #result and #rivalries.
+// Shared by index.html, cfb-h2h.html and cbb-h2h.html: team lists, team-name
+// resolution (aliases and typos), team colors and logos, the score bug, series
+// notes, decade chart and game list, shareable ?t1=&t2= links, recent lookups,
+// the swap button and the loading skeleton. Pages provide the elements #team1,
+// #team2, #swap, #status, #suggest, #teams and #recents (sport pages: #result).
 
 // ---- Small helpers ----
 
@@ -19,6 +19,48 @@ function setStatus(msg, isError) {
 function fmtDate(d) {
   if (!d) return "";
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function fmtShortDate(d) {
+  return d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+}
+
+// ---- Team lists ----
+
+const PROXY = (window.H2H_PROXY || "").replace(/\/$/, "");
+
+// Where each sport's team list comes from and how its fields map onto
+// buildTeamIndex. The home page loads whichever sport is picked.
+const TEAM_SOURCES = {
+  cfb: {
+    path: "/cfb/teams/fbs",
+    aliases: ["abbreviation", "alternateNames"],
+    meta: t => ({
+      color: t.color, altColor: t.alternateColor, abbr: t.abbreviation, logos: t.logos,
+      conference: t.conference === "FBS Independents" ? null : t.conference,
+    }),
+  },
+  cbb: {
+    path: "/cbb/teams",
+    aliases: ["abbreviation", "shortDisplayName", "displayName"],
+    meta: t => ({
+      color: t.primaryColor, altColor: t.secondaryColor, abbr: t.abbreviation, logos: t.logos,
+      conference: t.conference,
+    }),
+  },
+};
+
+async function loadTeamIndex(sport) {
+  const src = TEAM_SOURCES[sport];
+  const res = await fetch(PROXY + src.path);
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  return buildTeamIndex(await res.json(), src.aliases, src.meta);
+}
+
+// Autocomplete options for both team inputs.
+function fillTeamList(index) {
+  document.getElementById("teams").innerHTML = index.schools.slice().sort()
+    .map(name => `<option value="${esc(name)}">`).join("");
 }
 
 // ---- Team-name resolution ----
@@ -281,16 +323,16 @@ function logoHtml(meta, name, size) {
 }
 
 // Small logo inside each input, and the team's color on its left edge, once it
-// names a known team.
+// names a known team. With no team list (still loading, or the home page just
+// switched sport) the inputs go plain.
 function refreshInputLogos(index) {
-  if (!index) return;
   for (const id of ["team1", "team2"]) {
     const input = document.getElementById(id);
     const wrap = input.closest(".input-wrap");
     const slot = wrap.querySelector(".input-logo");
     const key = normalizeName(input.value);
-    const aliasHits = [...(index.byAlias.get(key) || [])];
-    const name = index.bySchool.get(key) || (aliasHits.length === 1 ? aliasHits[0] : null);
+    const aliasHits = index ? [...(index.byAlias.get(key) || [])] : [];
+    const name = !index ? null : index.bySchool.get(key) || (aliasHits.length === 1 ? aliasHits[0] : null);
     wrap.classList.toggle("has-logo", !!name);
     slot.innerHTML = name ? logoHtml(teamMeta(index, name), name, "sm") : "";
     if (name) wrap.style.setProperty("--team", teamMeta(index, name).color);
@@ -387,13 +429,23 @@ function renderMatchup({ team1, team2, wins1, wins2, ties, note, rows }, index) 
     summary: `${team1} ${wins1}, ${team2} ${wins2}${ties ? `, ${plural(ties, "tie")}` : ""}`,
   });
 
+  const sides = [
+    { ab: ab[0], logo: logoHtml(m1, team1, "disc") },
+    { ab: ab[1], logo: logoHtml(m2, team2, "disc") },
+  ];
   document.getElementById("result").innerHTML = `
     <div class="matchup" style="${colorVars(c1, m1.altColor, c2, m2.altColor)}">
       <div>${board}${note ? `<p class="bug-note">${esc(note)}</p>` : ""}</div>
       ${highlightsHtml(stats, team1, team2, ab)}
       ${decadesHtml(played, team1, team2)}
-      ${gamesHtml(rows, team1, team2, played.length)}
+      ${gamesHtml(rows, team1, team2, played.length, sides)}
     </div>`;
+
+  rememberMatchup({
+    sport: document.body.dataset.sport, t1: team1, t2: team2, a1: ab[0], a2: ab[1], c1, c2,
+    l1: m1.logo || null, l2: m2.logo || null, wins1, wins2, ties, games: played.length,
+    next: upcoming[0] ? upcoming[0].date : null,
+  });
 }
 
 // "27–9": the winner's score first.
@@ -436,14 +488,15 @@ function seriesStats(rows, team1, team2) {
 }
 
 // Six cards, three across: current streak, last meeting, then longest streak
-// and biggest win for each team. Each card's top stripe is the team it's about.
+// and biggest win for each team. Each card's label sits on a bar in the color
+// of the team it's about (neutral for a tie).
 function highlightsHtml(stats, team1, team2, ab) {
   if (!stats.games.length) return "";
-  const markOf = t => (!t ? "var(--line)" : sameTeam(t, team1) ? "var(--mark1)" : "var(--mark2)");
+  const colorsOf = t => (!t ? "" : sameTeam(t, team1) ? "--nc:var(--c1);--nf:var(--f1);--nm:var(--mark1)" : "--nc:var(--c2);--nf:var(--f2);--nm:var(--mark2)");
   const abOf = t => (sameTeam(t, team1) ? ab[0] : ab[1]);
   const shortYears = (a, b) => (a === b ? `${a}` : `${a}–${String(b).slice(String(a).slice(0, 2) === String(b).slice(0, 2) ? 2 : 0)}`);
   const card = (label, value, sub, team) => `
-    <div class="note" style="--mark:${markOf(team)}">
+    <div class="note" style="${colorsOf(team)}">
       <span class="note-label">${esc(label)}</span>
       <span class="note-value">${esc(value)}</span>
       <span class="note-sub">${esc(sub)}</span>
@@ -471,7 +524,9 @@ function highlightsHtml(stats, team1, team2, ab) {
 // ---- Wins by decade ----
 
 // One column per decade: team1's wins rise above the decade label, team2's hang
-// below it, on one shared scale. Ties are printed under the decade.
+// below it, on one shared scale. Ties are printed under the decade. On phones
+// style.css turns it sideways (one row per decade, team1 left, team2 right), so
+// bar lengths are a 0–1 fraction (--v) rather than pixels.
 function decadesHtml(games, team1, team2) {
   const byDecade = new Map();
   for (const g of games) {
@@ -486,7 +541,7 @@ function decadesHtml(games, team1, team2) {
   const decades = [...byDecade.keys()].sort((a, b) => a - b);
   const max = Math.max(...decades.map(d => Math.max(byDecade.get(d).w1, byDecade.get(d).w2)), 1);
   const anyTies = decades.some(d => byDecade.get(d).t);
-  const bar = n => (n ? `<i style="height:${Math.round((n / max) * 110)}px"></i>` : "");
+  const bar = n => (n ? `<i style="--v:${(n / max).toFixed(3)}"></i>` : "");
   const cols = decades.map(d => {
     const { w1, w2, t } = byDecade.get(d);
     const label = `${d}s: ${team1} ${w1}, ${team2} ${w2}${t ? `, ${plural(t, "tie")}` : ""}`;
@@ -500,34 +555,37 @@ function decadesHtml(games, team1, team2) {
     <div class="section-head">
       ${capHtml("Wins by decade")}
       <div class="dec-legend">
-        <span><i style="background:var(--mark1)"></i>${esc(team1)}, above the line</span>
-        <span><i style="background:var(--mark2)"></i>${esc(team2)}, below</span>
+        <span><i style="background:var(--mark1)"></i><span>${esc(team1)}<span class="dec-where">, above the line</span></span></span>
+        <span><i style="background:var(--mark2)"></i><span>${esc(team2)}<span class="dec-where">, below</span></span></span>
       </div>
     </div>
-    <div class="dec-scroll"><div class="dec-chart${anyTies ? " has-ties" : ""}" style="min-width:${decades.length * 40}px">${cols}</div></div>
+    <div class="dec-scroll"><div class="dec-chart${anyTies ? " has-ties" : ""}" style="--n:${decades.length}">${cols}</div></div>
   </section>`;
 }
 
 // ---- Every meeting ----
 
-const BOX_COUNT = 6;
+const STRIP_COUNT = 6;
 
-// The newest six games (upcoming ones first) as score boxes, plus a button that
-// opens a table of every game.
-function gamesHtml(rows, team1, team2, playedCount) {
-  const ptsFor = (g, t) => (sameTeam(g.home, t) ? g.homePts : g.awayPts);
+// The newest six games (upcoming ones first) as strips filled with the
+// winner's color, plus a button that opens a table of every game.
+// `sides` is [{ ab, logo }] for team1 and team2.
+function gamesHtml(rows, team1, team2, playedCount, sides) {
   const badgesHtml = g => (g.badges || []).map(b => `<span class="pill${b.post ? " post" : ""}">${esc(b.text)}</span>`).join(" ");
 
-  const box = g => {
-    const line = (t, mark) => {
-      const won = !g.upcoming && g.winner && sameTeam(g.winner, t);
-      return `<div class="box-line${won ? " won" : ""}"><span>${esc(t)}</span><b>${g.upcoming ? "–" : esc(ptsFor(g, t) ?? "?")}</b></div>`;
-    };
+  const strip = g => {
+    const w = !g.winner ? null : sameTeam(g.winner, team1) ? 0 : sameTeam(g.winner, team2) ? 1 : null;
+    const score = winnerFirstScore(g, g.winner);
+    const [kind, main, logo] = g.upcoming ? ["upcoming", `${sides[0].ab} vs ${sides[1].ab}`, ""]
+      : w !== null ? [`t${w + 1}`, `${sides[w].ab} ${score}`, sides[w].logo]
+      : ["tie", g.winner ? `${g.winner} ${score}` : `Tie ${score}`, ""];
+    const when = [g.upcoming ? "Upcoming" : null, fmtDate(g.date), g.site].filter(Boolean).join(" · ");
     const tags = badgesHtml(g);
-    return `<div class="box${g.upcoming ? " upcoming" : ""}">
-      <div class="box-head"><span>${g.upcoming ? "Upcoming" : "Final"} · ${esc(fmtDate(g.date))}</span><span class="box-site">${esc(g.site || "")}</span></div>
-      ${line(team1)}${line(team2)}
-      ${tags ? `<div class="box-tags">${tags}</div>` : ""}
+    // The year column is the game's calendar year, which matches the date beside it.
+    return `<div class="gstrip ${kind}">
+      <span class="gstrip-year">${esc(new Date(g.date).getFullYear() || g.season)}</span>
+      <span class="gstrip-main"><b>${esc(main)}</b><small>${esc(when)}${tags ? ` ${tags}` : ""}</small></span>
+      ${logo}
     </div>`;
   };
 
@@ -552,10 +610,12 @@ function gamesHtml(rows, team1, team2, playedCount) {
 
   const upcomingCount = rows.length - playedCount;
   const allLabel = `All ${plural(playedCount, "meeting")}${upcomingCount ? ` + ${upcomingCount} upcoming` : ""}`;
-  const more = rows.length > BOX_COUNT;
+  const more = rows.length > STRIP_COUNT;
+  const shown = rows.slice(0, STRIP_COUNT);
+  // Two columns on wide screens, filled top to bottom so newest-first reads down the left.
   return `<section class="section">
     ${capHtml("Every meeting")}
-    <div class="boxes">${rows.slice(0, BOX_COUNT).map(box).join("")}</div>
+    <div class="gstrips" style="--rows:${Math.ceil(shown.length / 2)}">${shown.map(strip).join("")}</div>
     ${more ? `
       <button type="button" class="btn slant" data-games="show" aria-expanded="false" aria-controls="full-games">${esc(allLabel)}</button>
       <div class="full-games" id="full-games" hidden>
@@ -637,7 +697,8 @@ function initModes(compare) {
     window.scrollTo({ top: 0, behavior: "smooth" });
     compare();
   });
-  setMode("team");
+  // ?mode=conf comes from the home page's "Team vs Conference" link.
+  setMode(new URLSearchParams(location.search).get("mode") === "conf" ? "conf" : "team");
 }
 
 // `fetchVsMembers(team, members, onProgress)` is supplied by the page and
@@ -815,36 +876,123 @@ function initCopyLink() {
   });
 }
 
-// ---- Empty state ----
+// ---- Recent lookups ----
 
-// Rivalry chips shown until a matchup is loaded. Clicking runs it in place;
-// the href still works for opening in a new tab.
-function initRivalries(pairs, compare) {
-  const box = document.getElementById("rivalries");
-  const chips = box.querySelector(".chips");
-  for (const [a, b] of pairs) {
-    const chip = document.createElement("a");
-    chip.className = "chip slant";
-    chip.href = matchupHref(a, b);
-    chip.textContent = `${a} vs ${b}`;
-    chip.addEventListener("click", e => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-      e.preventDefault();
-      setMode("team");
-      document.getElementById("team1").value = a;
-      document.getElementById("team2").value = b;
-      compare();
-    });
-    chips.appendChild(chip);
+// The last few matchups looked up on this device, newest first: on the home
+// page (both sports) and under the search on each sport page (that sport).
+// localStorage can be missing or blocked (private windows), so every access is
+// guarded and the pages work without it.
+const RECENTS_KEY = "h2h-recents";
+const RECENTS_MAX = 6;
+
+function loadRecents() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]");
+    return Array.isArray(list) ? list.filter(r => r && (r.sport === "cfb" || r.sport === "cbb") && r.t1 && r.t2) : [];
+  } catch {
+    return [];
   }
+}
+
+function saveRecents(list) {
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, RECENTS_MAX)));
+  } catch {
+    // Storage blocked: recents just won't persist.
+  }
+}
+
+// Michigan–Ohio State and Ohio State–Michigan are the same lookup.
+function samePair(r, sport, a, b) {
+  return r.sport === sport
+    && ((sameTeam(r.t1, a) && sameTeam(r.t2, b)) || (sameTeam(r.t1, b) && sameTeam(r.t2, a)));
+}
+
+// Saves what's needed to draw the matchup without its team list: names,
+// abbreviations, block colors, logos and the record.
+function rememberMatchup(entry) {
+  if (!TEAM_SOURCES[entry.sport]) return;
+  saveRecents([entry, ...loadRecents().filter(r => !samePair(r, entry.sport, entry.t1, entry.t2))]);
+}
+
+// One row: a band naming the sport and who leads, over the two team blocks.
+function recentHtml(r) {
+  const sportName = r.sport === "cbb" ? "Basketball" : "Football";
+  const w1 = Number(r.wins1) || 0, w2 = Number(r.wins2) || 0, games = Number(r.games) || 0;
+  const lead = !games ? "No games yet" : w1 === w2 ? "Series tied" : `${w1 > w2 ? r.a1 : r.a2} leads`;
+  const more = r.next ? `next ${fmtShortDate(r.next)}` : plural(games, "game");
+  const c1 = normalizeHex(r.c1) || fallbackColor(r.t1);
+  const c2 = normalizeHex(r.c2) || fallbackColor(r.t2);
+  const logo = (name, abbr, color, url) => logoHtml({ color, abbr, logo: url }, name, "disc");
+  const label = `${sportName}: ${r.t1} ${w1}, ${r.t2} ${w2}${r.ties ? `, ${plural(Number(r.ties), "tie")}` : ""}. ${lead}, ${more}.`;
+  return `<a class="recent" data-sport="${r.sport}" href="${r.sport}-h2h.html${esc(matchupHref(r.t1, r.t2))}"
+      data-t1="${esc(r.t1)}" data-t2="${esc(r.t2)}" aria-label="${esc(label)}"
+      style="--c1:${c1};--c2:${c2};--f1:${textOn(c1)};--f2:${textOn(c2)}">
+    <span class="recent-band" aria-hidden="true"><span>${sportName}</span><span class="recent-lead">${esc(lead)} · ${esc(more)}</span></span>
+    <span class="recent-row" aria-hidden="true">
+      <span class="recent-team t1">${logo(r.t1, r.a1, c1, r.l1)}<b>${w1}</b></span>
+      <span class="recent-vs">${esc(r.a1)} vs ${esc(r.a2)}</span>
+      <span class="recent-team t2"><b>${w2}</b>${logo(r.t2, r.a2, c2, r.l2)}</span>
+    </span>
+  </a>`;
+}
+
+// Re-reads a saved record from the Worker's /record route, so a recent picks
+// up games played since it was saved. Returns null on failure (keep the old one).
+async function refreshRecent(r) {
+  try {
+    const res = await fetch(`${PROXY}/${r.sport}/record?${new URLSearchParams({ team1: r.t1, team2: r.t2 })}`);
+    if (!res.ok) return null;
+    const x = await res.json();
+    return { ...r, wins1: x.wins1, wins2: x.wins2, ties: x.ties, games: x.games, next: x.next };
+  } catch {
+    return null;
+  }
+}
+
+// Draws the list into #recents. `sport` limits it to one sport (sport pages);
+// `onPick(t1, t2)` runs a recent in place instead of following its link. On the
+// sport pages the list (and the page heading) step aside while a result shows.
+function initRecents({ sport = null, max = RECENTS_MAX, onPick = null } = {}) {
+  const box = document.getElementById("recents");
+  const listEl = box.querySelector(".recent-list");
+  const empty = box.querySelector(".recent-empty");
+  const clear = box.querySelector(".recent-clear");
   const result = document.getElementById("result");
-  // The page heading also shrinks to screen-reader only while a result is showing.
-  const sync = () => {
-    box.hidden = result.children.length > 0;
-    document.body.classList.toggle("has-result", result.children.length > 0);
+  const shown = () => loadRecents().filter(r => !sport || r.sport === sport).slice(0, max);
+
+  const draw = () => {
+    const list = shown();
+    listEl.innerHTML = list.map(recentHtml).join("");
+    clear.hidden = !list.length;
+    if (empty) empty.hidden = list.length > 0;
+    const hasResult = !!result && result.children.length > 0;
+    box.hidden = hasResult || (!list.length && !empty);
+    document.body.classList.toggle("has-result", hasResult);
   };
-  new MutationObserver(sync).observe(result, { childList: true });
-  sync();
+
+  // Clears only what this list shows, so a sport page leaves the other sport's recents.
+  clear.addEventListener("click", () => {
+    saveRecents(sport ? loadRecents().filter(r => r.sport !== sport) : []);
+    draw();
+  });
+  if (onPick) {
+    listEl.addEventListener("click", e => {
+      const a = e.target.closest("a.recent");
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      onPick(a.dataset.t1, a.dataset.t2);
+    });
+  }
+  if (result) new MutationObserver(draw).observe(result, { childList: true });
+  draw();
+
+  Promise.all(shown().map(refreshRecent)).then(fresh => {
+    const updated = fresh.filter(Boolean);
+    if (!updated.length) return;
+    saveRecents(loadRecents().map(r => updated.find(u => u.sport === r.sport && u.t1 === r.t1 && u.t2 === r.t2) || r));
+    draw();
+  });
 }
 
 // ---- Swap ----
