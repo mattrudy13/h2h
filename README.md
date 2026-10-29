@@ -28,6 +28,9 @@ Each matchup shows the series record, highlights (current and longest streaks, l
 meeting, biggest wins) and a record-by-decade chart. **Team vs Conference** mode shows a
 team's all-time record against every current member of a conference.
 
+The home page searches either sport and lists your recent lookups (saved in that browser
+only), each with its current record.
+
 Matchups can be linked: `cfb-h2h.html?t1=Michigan&t2=Ohio+State` (or `?t1=Michigan&conf=Big+Ten`)
 runs that comparison on load, and the URL updates after each compare. Team names accept common abbreviations and
 nicknames (e.g. UNC, OSU, "Ohio St"), and the page suggests close matches for typos.
@@ -50,7 +53,7 @@ The Worker:
 - only forwards the endpoints the site uses (`/cfb/teams/fbs`, `/cfb/teams/matchup`,
   `/cbb/teams`, `/cbb/games`), so it can't be used as an open proxy for the key
 - answers `/cfb/record` and `/cbb/record?team1=&team2=` itself with just the series totals,
-  so the landing page's six rivalry records don't download whole basketball histories
+  so the recent-lookup records don't download whole basketball histories
 - caches successful responses to save API quota: team lists for 7 days; matchups and game
   lists for 12 hours in season (football Aug–Jan, basketball Nov–Apr) and 7 days off-season.
   Browsers keep their copy for at most 1 hour. To clear Cloudflare's cache early, bump
@@ -66,7 +69,7 @@ The Worker's URL lives in `proxy-config.js`. It isn't a secret.
 
 | Path                   | What it is                                           |
 |------------------------|------------------------------------------------------|
-| `index.html`           | Landing page: both sports and six rivalry records    |
+| `index.html`           | Home page: search either sport, recent lookups       |
 | `cfb-h2h.html`         | Football page                                        |
 | `cbb-h2h.html`         | Basketball page                                      |
 | `style.css`            | Shared styles for all three pages (light and dark)   |

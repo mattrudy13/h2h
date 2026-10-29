@@ -4,16 +4,17 @@ All-time head-to-head records between college teams (football and men's basketba
 published as a static site on GitHub Pages: https://mattrudy13.github.io/h2h/
 See README.md for usage, local running and deploy commands; ENHANCEMENTS.md for the idea list.
 
-## Status (2026-10-27)
+## Status (2026-10-28)
 
 Live and working end to end:
 - Team vs Team: score bug (logos, team colors, record), series notes (current and longest
-  streaks, last meeting, biggest wins), wins-by-decade chart, recent games as score boxes
-  plus a full games table behind a button.
-- Landing page: six rivalry score graphics with live records from the Worker's `/record` route.
+  streaks, last meeting, biggest wins), wins-by-decade chart, recent games as winner-colored
+  strips plus a full games table behind a button.
+- Home page: search either sport, plus recent lookups (localStorage) whose records refresh
+  from the Worker's `/record` route. Sport pages show that sport's recents under the search.
 - Team vs Conference: a team's record against every current member of a conference.
 - Shareable URLs (`?t1=&t2=`, `?t1=&conf=`), typo/alias handling, swap, copy link, mobile
-  layout, dark mode, loading skeleton, rivalry quick picks, landing page.
+  layout, dark mode, loading skeleton, recent lookups, home page.
 - Cloudflare Worker proxy with season-aware caching (deployed, version with `CACHE_VERSION = "2"`).
 
 Next steps: open items in ENHANCEMENTS.md (home/away/neutral split, bowl/tournament record,
@@ -21,21 +22,23 @@ date-range filter, Worker rate limit, CI smoke test, FCS teams in the football p
 
 ## Layout
 
-- `index.html`: landing page. `cfb-h2h.html` / `cbb-h2h.html`: the two sport pages.
+- `index.html`: home page (search + recents). `cfb-h2h.html` / `cbb-h2h.html`: the two sport pages.
+  The home page's Compare opens `{sport}-h2h.html?t1=&t2=`; its Team vs Conference link opens
+  `?mode=conf`.
 - `style.css`: all styles for all three pages. Sport accent via `<body data-sport="cfb|cbb">`
   (amber / teal); conference mode via `body[data-mode="conf"]` (set by `setMode()`);
-  `body.has-result` (set by `initRivalries`) hides the page heading visually once a result shows.
-- `common.js`: everything shared: name resolution, team metadata (colors/logos/conferences),
-  score bug + series notes + decade chart + game boxes/table rendering, conference view, URL
-  handling, swap, copy link, rivalry chips. Plain global functions, no modules or build step.
-  `index.html` loads it too, for `matchupColors`, `textOn`, `esc` and the formatting helpers.
+  `body.has-result` (set by `initRecents`) hides the page heading visually once a result shows.
+- `common.js`: everything shared: team lists (`TEAM_SOURCES`, `loadTeamIndex`, `fillTeamList`),
+  name resolution, team metadata (colors/logos/conferences), score bug + series notes + decade
+  chart + game strips/table rendering, conference view, URL handling, swap, copy link, recent
+  lookups. Plain global functions, no modules or build step.
 - `proxy-config.js`: the Worker URL (`window.H2H_PROXY`). Not a secret.
 - `worker/`: the Cloudflare Worker (`src/index.js`, `wrangler.toml`). `worker/.dev.vars` holds
   the API key for `wrangler dev` and is gitignored.
 
 Per-page code (in each sport page's inline `<script>`) is limited to: `apiFetch`, `loadTeams`
-(passes the sport's field names to `buildTeamIndex`), `compare()` (fetch + normalize games
-into rows), `fetchVsMembers()` (conference data) and init calls. Rendering lives in common.js.
+(calls `loadTeamIndex` with the sport), `compare()` (fetch + normalize games into rows),
+`fetchVsMembers()` (conference data) and init calls. Rendering lives in common.js.
 
 ## The API key never reaches the browser
 
@@ -50,8 +53,8 @@ The Worker:
   otherwise; opening the pages as `file://` sends `Origin: null` and fails, so serve over HTTP).
 - serves `/cfb/record` and `/cbb/record?team1=&team2=` itself: series totals (`wins1`,
   `wins2`, `ties`, `games`, `first`, `next`) computed from the cached upstream data, with the
-  small result cached too. The landing page uses it so it never downloads a basketball
-  history (~1.7 MB per team) just to show a record.
+  small result cached too. Recent lookups use it to refresh their records without
+  downloading a basketball history (~1.7 MB per team).
 - only forwards allowlisted endpoints, each with its own query params (`ALLOWED`); other
   params are dropped so they can't create new cache keys. Missing params get 400. **A page
   that needs a new endpoint or param needs a Worker change and a redeploy**, or it gets 404/400.
@@ -113,11 +116,29 @@ guessing. Canonical names are written back into the inputs and the URL.
 - If the two teams' colors are too close (`colorDistance < 90`), team 2 uses its alternate
   color, else the farthest `FALLBACK_COLORS` entry (`matchupColors`). Known side effect:
   Kansas vs Kentucky shows Kentucky in orange (both blue, Kentucky's alternate is white).
+- Phone redo (chosen by the user 2026-10-28 from phone mockups in the same canvas): below
+  760px the score bug is one edge-to-edge band split on a diagonal (`.bug-row::before` lays
+  team 2's color over the right, `::after` is the seam), logos/names on top, big numbers at
+  the bottom, the middle tag between the logos. Names are capped at 90% of their column so
+  they stay on their side of the diagonal; a width sweep (320–760px, long names, conference
+  mode) checks for overlaps and mid-word breaks. Desktop keeps the side-by-side bug.
 - Series notes: six cards in a 2x3 grid (the user asked for symmetry); two columns on phones.
+  Each label sits on a bar in the team's block color (`--nc`/`--nf`).
 - Decade chart: one column per decade, team 1 above the line, team 2 below, on one scale;
-  ties printed under the decade. No hover tooltips (the user avoids tooltips).
-- Every meeting: the newest six games as score boxes (upcoming first), then a button opens
-  the full table (`initGamesToggle`, delegated on `document`).
+  ties printed under the decade. On phones it turns sideways (one row per decade, team 1's
+  bar left of the label, team 2's right), so bars carry their length as `--v` (0–1).
+  No hover tooltips (the user avoids tooltips).
+- Every meeting: the newest six games as strips filled with the winner's color (upcoming and
+  tied games neutral), two columns on desktop filled top to bottom, one on phones; then a
+  button opens the full table (`initGamesToggle`, delegated on `document`).
+- Recent lookups: the user didn't want suggested rivalries ("used by me or my friends"), so
+  the home page and sport pages show the last lookups instead. `rememberMatchup` (called by
+  `renderMatchup`) saves names, abbreviations, block colors, logo URLs and the record under
+  localStorage `h2h-recents` (max 6, A–B = B–A); `initRecents` draws them, refreshes records
+  from `/record`, and runs them in place on sport pages. Each row has a band in its sport's
+  accent naming the sport (the user wanted the sport obvious). Team vs Conference lookups
+  aren't saved (no quick record route for conferences). Storage access is wrapped in
+  try/catch; the pages work without it.
 - Logos on the score bug sit in white discs (`logoHtml(..., "disc")`, light-mode logo) so
   they show on any team color.
 - Slanted controls use `clip-path`, which would cut off focus rings, so `.slant:focus-visible`
@@ -135,7 +156,7 @@ guessing. Canonical names are written back into the inputs and the URL.
   temporarily (switch back before committing).
 - Testing has been done with Playwright from the apartments repo's venv
   (`../apartments/.venv/bin/python`, Chromium installed there): load pages headless, assert on
-  `#status`, `.bug`, `.bug-num`, `.note`, `.dec-col`, `.box`, `.riv-num` (landing), check
+  `#status`, `.bug`, `.bug-num`, `.note`, `.dec-col`, `.gstrip`, `.recent`, check
   `document.documentElement.scrollWidth <= 375` at phone width, light and dark
   (`color_scheme="dark"`), and no console errors or failed responses. Screenshot and look
   at layout changes before shipping.
